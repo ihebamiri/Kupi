@@ -300,7 +300,7 @@ func (p *Plan) deny(reason string) {
 }
 
 func (g *Guard) checkRBAC(ctx context.Context, p *Plan, r kube.Reader, verb string, gvr schema.GroupVersionResource, ns, name string) {
-	allowed, reason, err := r.CanI(ctx, verb, gvr, ns, name)
+	allowed, reason, err := r.CanI(ctx, verb, gvr, "", ns, name)
 	if err != nil {
 		p.Warnings = append(p.Warnings, "Couldn't check your permissions: "+err.Error())
 		return

@@ -13,9 +13,9 @@ data:
   greeting: hello
 `;
 
-export function ApplyPage({ onConnect }: { onConnect: () => void }) {
+export function ApplyPage({ onConnect, initialManifest }: { onConnect: () => void; initialManifest?: string }) {
   const { active } = useClusters();
-  const [manifest, setManifest] = useState(EXAMPLE);
+  const [manifest, setManifest] = useState(initialManifest ?? EXAMPLE);
   const [plan, setPlan] = useState<PlanView | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);

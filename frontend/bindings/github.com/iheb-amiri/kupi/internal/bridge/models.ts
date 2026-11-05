@@ -60,6 +60,18 @@ export interface Connection {
 }
 
 /**
+ * ContainerView describes a container of a pod.
+ */
+export interface ContainerView {
+    "name": string;
+    "image": string;
+    "init": boolean;
+    "ready": boolean;
+    "restartCount": number;
+    "state": string;
+}
+
+/**
  * ContextInfo describes a kubeconfig context for the UI. It never contains
  * credentials.
  */
@@ -84,6 +96,33 @@ export interface ContextInfo {
     "connected": boolean;
     "serverVersion": string;
     "editingEnabled": boolean;
+}
+
+/**
+ * EventView is a Kubernetes event about an object.
+ */
+export interface EventView {
+    "type": string;
+    "reason": string;
+    "message": string;
+    "count": number;
+    "lastSeen": string;
+    "source": string;
+}
+
+/**
+ * LogRequest selects logs to stream. Set Pod for one pod, or Workload for
+ * every pod of a Deployment, StatefulSet, DaemonSet, ReplicaSet or Job.
+ */
+export interface LogRequest {
+    "namespace": string;
+    "pod": string;
+    "workload": ResourceRef | null;
+    "container": string;
+    "follow": boolean;
+    "previous": boolean;
+    "timestamps": boolean;
+    "tailLines": number;
 }
 
 /**
@@ -118,4 +157,63 @@ export interface ResourceRef {
     "resource": string;
     "namespace": string;
     "name": string;
+}
+
+/**
+ * ResourceTypeView is a resource type for the sidebar.
+ */
+export interface ResourceTypeView {
+    "group": string;
+    "version": string;
+    "resource": string;
+    "kind": string;
+    "namespaced": boolean;
+    "verbs": string[] | null;
+    "shortNames": string[] | null;
+    "category": string;
+    "label": string;
+}
+
+/**
+ * TableColumn is one column of a server-side table.
+ */
+export interface TableColumn {
+    "name": string;
+    "type": string;
+    "description": string;
+    "priority": number;
+}
+
+/**
+ * TableRow is one object in a table.
+ */
+export interface TableRow {
+    "name": string;
+    "namespace": string;
+    "uid": string;
+    "created": string;
+    "labels": { [_ in string]?: string } | null;
+    "ownerKind": string;
+    "ownerName": string;
+    "cells": string[] | null;
+}
+
+/**
+ * TableView is a list of objects with the server's columns.
+ */
+export interface TableView {
+    "columns": TableColumn[] | null;
+    "rows": TableRow[] | null;
+    "resourceVersion": string;
+    "truncated": boolean;
+}
+
+/**
+ * TypeRef names a resource type.
+ */
+export interface TypeRef {
+    "group": string;
+    "version": string;
+    "resource": string;
+    "namespaced": boolean;
 }

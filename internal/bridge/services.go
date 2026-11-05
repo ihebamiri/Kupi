@@ -24,6 +24,7 @@ import (
 	"github.com/iheb-amiri/kupi/internal/guard"
 	"github.com/iheb-amiri/kupi/internal/kube"
 	"github.com/iheb-amiri/kupi/internal/kubeconfig"
+	"github.com/iheb-amiri/kupi/internal/live"
 	"github.com/iheb-amiri/kupi/internal/profile"
 	"github.com/iheb-amiri/kupi/internal/trust"
 	"github.com/iheb-amiri/kupi/internal/validate"
@@ -41,6 +42,7 @@ type Deps struct {
 	Audit     *audit.Log
 	Trust     *trust.Store
 	Profiles  *profile.Store
+	Live      *live.Manager
 	ConfigDir string
 }
 
@@ -174,6 +176,7 @@ func (s *ClusterService) Disconnect(contextName string) error {
 	if err := validate.ContextName(contextName); err != nil {
 		return err
 	}
+	s.d.Live.StopContext(contextName)
 	s.d.Kube.Disconnect(contextName)
 	s.d.Guard.Forget(contextName)
 	return nil
@@ -195,6 +198,7 @@ func (s *ClusterService) SetProfile(contextName, kind string) error {
 	if err := s.d.Profiles.Set(contextName, k); err != nil {
 		return err
 	}
+	s.d.Live.StopContext(contextName)
 	s.d.Kube.Disconnect(contextName)
 	s.d.Guard.Forget(contextName)
 	label := kind

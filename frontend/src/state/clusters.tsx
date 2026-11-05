@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { ClusterService, errorMessage, type ContextInfo } from "../lib/api";
+import { ClusterService, ResourceService, errorMessage, type ContextInfo } from "../lib/api";
 
 interface ClustersState {
   contexts: ContextInfo[];
@@ -8,6 +8,10 @@ interface ClustersState {
   /** The connected context the rest of the app works on. */
   active: ContextInfo | null;
   setActive: (name: string) => void;
+  /** Namespace in view; "" means all namespaces. */
+  namespace: string;
+  setNamespace: (ns: string) => void;
+  namespaces: string[];
   refresh: () => Promise<void>;
   connect: (name: string) => Promise<void>;
   disconnect: (name: string) => Promise<void>;
@@ -88,12 +92,36 @@ export function ClustersProvider({ children }: { children: ReactNode }) {
     [contexts, activeName],
   );
 
+  // Namespace in view. Production starts scoped to one namespace to keep load
+  // on the API server low; other clusters start with all namespaces.
+  const [namespace, setNamespace] = useState("");
+  const [namespaces, setNamespaces] = useState<string[]>([]);
+  const activeKey = active ? `${active.name}|${active.profile}` : "";
+  useEffect(() => {
+    if (!active) {
+      setNamespaces([]);
+      return;
+    }
+    setNamespace(active.profile === "production" ? active.namespace || "default" : "");
+    let cancelled = false;
+    ResourceService.Namespaces(active.name)
+      .then((list) => !cancelled && setNamespaces(list ?? []))
+      .catch(() => !cancelled && setNamespaces([]));
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeKey]);
+
   const value: ClustersState = {
     contexts,
     loading,
     error,
     active,
     setActive: setActiveName,
+    namespace,
+    setNamespace,
+    namespaces,
     refresh,
     connect,
     disconnect,

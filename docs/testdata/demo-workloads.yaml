@@ -1,0 +1,58 @@
+# Workloads for manual UI testing on the kupi-test k3d cluster:
+#   kubectl --context k3d-kupi-test apply -f docs/testdata/demo-workloads.yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kupi-demo
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ticker
+  namespace: kupi-demo
+  labels:
+    app: ticker
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: ticker
+  template:
+    metadata:
+      labels:
+        app: ticker
+    spec:
+      containers:
+        - name: ticker
+          image: busybox:1.36
+          command: ["sh", "-c", "i=0; while true; do echo \"tick $i from $HOSTNAME\"; i=$((i+1)); sleep 1; done"]
+          resources:
+            requests: { cpu: 10m, memory: 16Mi }
+            limits: { cpu: 50m, memory: 32Mi }
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: crasher
+  namespace: kupi-demo
+spec:
+  containers:
+    - name: crasher
+      image: busybox:1.36
+      command: ["sh", "-c", "echo 'starting up'; sleep 2; echo 'fatal: config missing' >&2; exit 1"]
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: demo-settings
+  namespace: kupi-demo
+data:
+  color: blue
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: demo-credentials
+  namespace: kupi-demo
+stringData:
+  password: not-a-real-password

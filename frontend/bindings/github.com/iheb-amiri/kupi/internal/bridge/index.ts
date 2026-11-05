@@ -5,11 +5,17 @@ import * as AppService from "./appservice.js";
 import * as AuditService from "./auditservice.js";
 import * as ClusterService from "./clusterservice.js";
 import * as GuardService from "./guardservice.js";
+import * as LogService from "./logservice.js";
+import * as ResourceService from "./resourceservice.js";
+import * as ShellService from "./shellservice.js";
 export {
     AppService,
     AuditService,
     ClusterService,
-    GuardService
+    GuardService,
+    LogService,
+    ResourceService,
+    ShellService
 };
 
 export type {
@@ -18,7 +24,15 @@ export type {
     AuditVerification,
     CommitResult,
     Connection,
+    ContainerView,
     ContextInfo,
+    EventView,
+    LogRequest,
     PlanView,
-    ResourceRef
+    ResourceRef,
+    ResourceTypeView,
+    TableColumn,
+    TableRow,
+    TableView,
+    TypeRef
 } from "./models.js";

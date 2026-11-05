@@ -17,6 +17,7 @@ import (
 	"github.com/iheb-amiri/kupi/internal/guard"
 	"github.com/iheb-amiri/kupi/internal/kube"
 	"github.com/iheb-amiri/kupi/internal/kubeconfig"
+	"github.com/iheb-amiri/kupi/internal/live"
 	"github.com/iheb-amiri/kupi/internal/profile"
 	"github.com/iheb-amiri/kupi/internal/trust"
 )
@@ -31,8 +32,16 @@ const contentSecurityPolicy = "default-src 'self'; script-src 'self'; style-src 
 	"img-src 'self' data:; font-src 'self' data:; connect-src 'self'; object-src 'none'; " +
 	"base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
 
+// Typed events, so the generated TypeScript knows their payloads.
+func init() {
+	application.RegisterEvent[live.Changed](live.EventChanged)
+	application.RegisterEvent[live.LogBatch](live.EventLogs)
+	application.RegisterEvent[live.ShellChunk](live.EventShell)
+}
+
 func main() {
-	deps, err := buildDeps()
+	emitter := &live.LateEmitter{}
+	deps, err := buildDeps(emitter)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -45,13 +54,18 @@ func main() {
 			application.NewService(bridge.NewClusterService(deps)),
 			application.NewService(bridge.NewGuardService(deps)),
 			application.NewService(bridge.NewAuditService(deps)),
+			application.NewService(bridge.NewResourceService(deps)),
+			application.NewService(bridge.NewLogService(deps)),
+			application.NewService(bridge.NewShellService(deps)),
 		},
 		Assets: application.AssetOptions{
 			Handler:    application.AssetFileServerFS(assets),
 			Middleware: securityHeaders,
 		},
-		Linux: application.LinuxOptions{ProgramName: "kupi"},
+		Linux:      application.LinuxOptions{ProgramName: "kupi"},
+		OnShutdown: deps.Live.StopAll,
 	})
+	emitter.Set(func(name string, data any) { app.Event.Emit(name, data) })
 
 	app.Window.NewWithOptions(application.WebviewWindowOptions{
 		Title:                      "Kupi",
@@ -69,7 +83,7 @@ func main() {
 	}
 }
 
-func buildDeps() (bridge.Deps, error) {
+func buildDeps(emitter live.Emitter) (bridge.Deps, error) {
 	dir, err := appdir.Dir()
 	if err != nil {
 		return bridge.Deps{}, err
@@ -100,6 +114,7 @@ func buildDeps() (bridge.Deps, error) {
 		Audit:     auditLog,
 		Trust:     trustStore,
 		Profiles:  profiles,
+		Live:      live.New(emitter),
 		ConfigDir: dir,
 	}, nil
 }

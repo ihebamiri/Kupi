@@ -3,6 +3,7 @@ package guard
 import (
 	"context"
 	"errors"
+	"io"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -35,6 +36,7 @@ type fakeCluster struct {
 	deleted     []string
 	deletedRV   []string
 	patched     [][]byte
+	execs       []string
 	lastApplyRV string
 }
 
@@ -81,12 +83,36 @@ func (f *fakeCluster) Resolve(gvk schema.GroupVersionKind) (schema.GroupVersionR
 		return secrets, true, nil
 	case "Deployment":
 		return deployments, true, nil
+	case "Pod":
+		return podsGVR, true, nil
 	}
 	return schema.GroupVersionResource{}, false, errors.New("unknown kind")
 }
 
-func (f *fakeCluster) CanI(_ context.Context, verb string, _ schema.GroupVersionResource, _, _ string) (bool, string, error) {
+func (f *fakeCluster) CanI(_ context.Context, verb string, _ schema.GroupVersionResource, sub, _, _ string) (bool, string, error) {
+	if sub != "" {
+		verb += "/" + sub
+	}
 	return !f.denyVerbs[verb], "", nil
+}
+
+func (f *fakeCluster) Table(context.Context, schema.GroupVersionResource, bool, string, kube.TableOptions) (*metav1.Table, error) {
+	return &metav1.Table{}, nil
+}
+
+func (f *fakeCluster) ResourceTypes(context.Context) ([]kube.ResourceType, error) { return nil, nil }
+
+func (f *fakeCluster) Logs(context.Context, string, string, kube.LogOptions) (io.ReadCloser, error) {
+	return io.NopCloser(strings.NewReader("")), nil
+}
+
+func (f *fakeCluster) WatchMetadata(context.Context, schema.GroupVersionResource, string, metav1.ListOptions) (watch.Interface, error) {
+	return watch.NewEmptyWatch(), nil
+}
+
+func (f *fakeCluster) Exec(_ context.Context, ns, pod, container string, command []string, _ kube.ExecStreams) error {
+	f.execs = append(f.execs, ns+"/"+pod+"/"+container+":"+strings.Join(command, " "))
+	return nil
 }
 
 func (f *fakeCluster) Apply(_ context.Context, gvr schema.GroupVersionResource, ns string, obj *unstructured.Unstructured, opts kube.ApplyOptions) (*unstructured.Unstructured, error) {

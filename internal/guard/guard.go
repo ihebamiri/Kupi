@@ -99,6 +99,7 @@ type Plan struct {
 
 	diffHash string
 	exec     func(ctx context.Context, m kube.Mutator) error
+	shell    *ShellRequest
 	used     bool
 }
 
@@ -223,40 +224,44 @@ func (g *Guard) Cancel(planID string) {
 	delete(g.plans, planID)
 }
 
-// Commit runs a prepared plan.
-func (g *Guard) Commit(ctx context.Context, planID string, c Confirmation) (*Result, error) {
+// claim checks a plan against the user's confirmation and, if everything
+// holds, marks it used and returns it with its session. Shell plans are not
+// gated by the editing switch; every other change is.
+func (g *Guard) claim(planID string, c Confirmation, shell bool) (*Plan, Session, error) {
 	if err := validate.Reason(c.Reason); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	g.mu.Lock()
+	defer g.mu.Unlock()
 	g.dropExpiredLocked()
 	p, ok := g.plans[planID]
-	if !ok || p.used {
-		g.mu.Unlock()
-		return nil, ErrPlanNotFound
+	if !ok || p.used || (p.shell != nil) != shell {
+		return nil, nil, ErrPlanNotFound
 	}
 	s, connected := g.sessions.Session(p.Context)
 	switch {
 	case !connected || s.Profile() != p.Profile:
-		g.mu.Unlock()
-		return nil, ErrNotConnected
+		return nil, nil, ErrNotConnected
 	case !p.Allowed:
-		g.mu.Unlock()
-		return nil, fmt.Errorf("%w: %s", ErrNotAllowed, p.DeniedReason)
-	case !g.editingLocked(p.Context, p.Profile):
-		g.mu.Unlock()
-		return nil, fmt.Errorf("%w: editing is off for this cluster", ErrNotAllowed)
+		return nil, nil, fmt.Errorf("%w: %s", ErrNotAllowed, p.DeniedReason)
+	case !shell && !g.editingLocked(p.Context, p.Profile):
+		return nil, nil, fmt.Errorf("%w: editing is off for this cluster", ErrNotAllowed)
 	case p.NeedsReason && strings.TrimSpace(c.Reason) == "":
-		g.mu.Unlock()
-		return nil, ErrReasonRequired
+		return nil, nil, ErrReasonRequired
 	case p.ConfirmName != "" && c.TypedName != p.ConfirmName:
-		g.mu.Unlock()
-		return nil, ErrConfirmName
+		return nil, nil, ErrConfirmName
 	}
 	p.used = true
 	delete(g.plans, planID)
-	g.mu.Unlock()
+	return p, s, nil
+}
 
+// Commit runs a prepared plan.
+func (g *Guard) Commit(ctx context.Context, planID string, c Confirmation) (*Result, error) {
+	p, s, err := g.claim(planID, c, false)
+	if err != nil {
+		return nil, err
+	}
 	execErr := p.exec(ctx, s.Mutator())
 	entry := audit.Entry{
 		Context:    p.Context,

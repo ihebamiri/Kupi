@@ -8,7 +8,7 @@ import { profileMeta } from "../lib/profiles";
 
 /** Shows the active cluster, its profile and whether editing is on. */
 export function ContextBar() {
-  const { active, contexts, setActive, setEditing } = useClusters();
+  const { active, contexts, setActive, setEditing, namespace, setNamespace, namespaces } = useClusters();
   const [askReason, setAskReason] = useState(false);
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
@@ -57,6 +57,19 @@ export function ContextBar() {
         {meta.label}
       </Badge>
       <span className="text-[12px] text-muted">{active.serverVersion}</span>
+      <select
+        aria-label="Namespace"
+        className="max-w-56 truncate rounded-md border border-line bg-panel-2 px-2 py-1 text-[13px] text-fg"
+        value={namespace}
+        onChange={(e) => setNamespace(e.target.value)}
+      >
+        <option value="">All namespaces</option>
+        {(namespaces.includes(namespace) || namespace === "" ? namespaces : [namespace, ...namespaces]).map((ns) => (
+          <option key={ns} value={ns}>
+            {ns}
+          </option>
+        ))}
+      </select>
       <div className="ml-auto flex items-center gap-2">
         {active.editingEnabled ? (
           <>

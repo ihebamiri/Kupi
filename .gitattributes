@@ -1,0 +1,8 @@
+# Linux ships first and is built from this checkout inside WSL, so text files
+# keep LF line endings everywhere, including Windows working copies.
+* text=auto eol=lf
+*.bat text eol=crlf
+*.ps1 text eol=crlf
+*.png binary
+*.ico binary
+*.jpg binary

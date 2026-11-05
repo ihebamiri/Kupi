@@ -16,6 +16,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"sync"
 	"time"
 
@@ -31,6 +32,7 @@ import (
 	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/metadata"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
 
@@ -68,7 +70,18 @@ type Reader interface {
 	// Resolve maps a kind to its resource and reports whether it is namespaced.
 	Resolve(gvk schema.GroupVersionKind) (gvr schema.GroupVersionResource, namespaced bool, err error)
 	// CanI asks the API server whether the current user may perform verb.
-	CanI(ctx context.Context, verb string, gvr schema.GroupVersionResource, namespace, name string) (allowed bool, reason string, err error)
+	// subresource is "" for the object itself, or e.g. "exec" or "log".
+	CanI(ctx context.Context, verb string, gvr schema.GroupVersionResource, subresource, namespace, name string) (allowed bool, reason string, err error)
+	// Table lists objects in the server's own table format: the same columns
+	// kubectl get shows, for every type including custom resources.
+	Table(ctx context.Context, gvr schema.GroupVersionResource, namespaced bool, namespace string, opts TableOptions) (*metav1.Table, error)
+	// ResourceTypes lists every listable resource type the server offers.
+	ResourceTypes(ctx context.Context) ([]ResourceType, error)
+	// Logs streams a container's log.
+	Logs(ctx context.Context, namespace, pod string, opts LogOptions) (io.ReadCloser, error)
+	// WatchMetadata watches object metadata only. It never transfers object
+	// contents, so Secret values stay on the server.
+	WatchMetadata(ctx context.Context, gvr schema.GroupVersionResource, namespace string, opts metav1.ListOptions) (watch.Interface, error)
 }
 
 // ApplyOptions controls a server-side apply.
@@ -84,6 +97,18 @@ type Mutator interface {
 	Apply(ctx context.Context, gvr schema.GroupVersionResource, namespace string, obj *unstructured.Unstructured, opts ApplyOptions) (*unstructured.Unstructured, error)
 	MergePatch(ctx context.Context, gvr schema.GroupVersionResource, namespace, name string, patch []byte, dryRun bool) (*unstructured.Unstructured, error)
 	Delete(ctx context.Context, gvr schema.GroupVersionResource, namespace, name, resourceVersion string, dryRun bool) error
+	// Exec runs a command in a container, attached to streams, until it exits
+	// or ctx is cancelled.
+	Exec(ctx context.Context, namespace, pod, container string, command []string, streams ExecStreams) error
+}
+
+// Clients are the API clients a session uses.
+type Clients struct {
+	Config   *rest.Config
+	Dynamic  dynamic.Interface
+	Typed    kubernetes.Interface
+	Metadata metadata.Interface
+	Mapper   meta.ResettableRESTMapper
 }
 
 // Session is a live connection to one kubeconfig context.
@@ -94,18 +119,23 @@ type Session struct {
 	defaultNamespace string
 	serverVersion    string
 
+	cfg    *rest.Config
 	dyn    dynamic.Interface
 	cs     kubernetes.Interface
+	meta   metadata.Interface
 	mapper meta.ResettableRESTMapper
 }
 
 // NewSession wires a session from already-built clients. Manager.Connect is
 // the normal way to get one; tests use this directly.
-func NewSession(name string, kind profile.Kind, user, defaultNamespace, serverVersion string, dyn dynamic.Interface, cs kubernetes.Interface, mapper meta.ResettableRESTMapper) *Session {
+func NewSession(name string, kind profile.Kind, user, defaultNamespace, serverVersion string, c Clients) *Session {
 	if defaultNamespace == "" {
 		defaultNamespace = metav1.NamespaceDefault
 	}
-	return &Session{name: name, profile: kind, user: user, defaultNamespace: defaultNamespace, serverVersion: serverVersion, dyn: dyn, cs: cs, mapper: mapper}
+	return &Session{
+		name: name, profile: kind, user: user, defaultNamespace: defaultNamespace, serverVersion: serverVersion,
+		cfg: c.Config, dyn: c.Dynamic, cs: c.Typed, meta: c.Metadata, mapper: c.Mapper,
+	}
 }
 
 func (s *Session) ContextName() string      { return s.name }
@@ -155,16 +185,17 @@ func (r *reader) Resolve(gvk schema.GroupVersionKind) (schema.GroupVersionResour
 	return mapping.Resource, mapping.Scope.Name() == meta.RESTScopeNameNamespace, nil
 }
 
-func (r *reader) CanI(ctx context.Context, verb string, gvr schema.GroupVersionResource, namespace, name string) (bool, string, error) {
+func (r *reader) CanI(ctx context.Context, verb string, gvr schema.GroupVersionResource, subresource, namespace, name string) (bool, string, error) {
 	review := &authv1.SelfSubjectAccessReview{
 		Spec: authv1.SelfSubjectAccessReviewSpec{
 			ResourceAttributes: &authv1.ResourceAttributes{
-				Namespace: namespace,
-				Verb:      verb,
-				Group:     gvr.Group,
-				Version:   gvr.Version,
-				Resource:  gvr.Resource,
-				Name:      name,
+				Namespace:   namespace,
+				Verb:        verb,
+				Group:       gvr.Group,
+				Version:     gvr.Version,
+				Resource:    gvr.Resource,
+				Subresource: subresource,
+				Name:        name,
 			},
 		},
 	}
@@ -286,8 +317,14 @@ func (m *Manager) Connect(ctx context.Context, contextName string) (*Session, er
 		return nil, fmt.Errorf("reach API server: %w", err)
 	}
 	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(cs.Discovery()))
+	metaClient, err := metadata.NewForConfig(cfg)
+	if err != nil {
+		return nil, fmt.Errorf("create metadata client: %w", err)
+	}
 
-	session := NewSession(contextName, kind, info.User, info.Namespace, serverVersion, dyn, cs, mapper)
+	session := NewSession(contextName, kind, info.User, info.Namespace, serverVersion, Clients{
+		Config: cfg, Dynamic: dyn, Typed: cs, Metadata: metaClient, Mapper: mapper,
+	})
 	m.mu.Lock()
 	m.sessions[contextName] = session
 	m.mu.Unlock()
