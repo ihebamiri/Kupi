@@ -46,6 +46,12 @@ export function CommandPalette() {
           <Command.Item className={item} onSelect={() => run(() => navigate({ page: "clusters" }))}>Clusters</Command.Item>
           <Command.Item className={item} onSelect={() => run(() => navigate({ page: "apply" }))}>Create or edit (form or YAML)</Command.Item>
           <Command.Item className={item} onSelect={() => run(() => navigate({ page: "audit" }))}>Audit log</Command.Item>
+          <Command.Item className={item} onSelect={() => run(() => navigate({ page: "forwards" }))}>Port forwards</Command.Item>
+          {active && (
+            <Command.Item className={item} onSelect={() => run(() => navigate({ page: "overview" }))}>
+              Overview (CPU and memory)
+            </Command.Item>
+          )}
         </Command.Group>
         {active && types.length > 0 && (
           <Command.Group heading="Resources" className={heading}>

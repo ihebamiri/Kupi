@@ -21,10 +21,12 @@ import (
 
 	"github.com/iheb-amiri/kupi/internal/audit"
 	"github.com/iheb-amiri/kupi/internal/buildmode"
+	"github.com/iheb-amiri/kupi/internal/forward"
 	"github.com/iheb-amiri/kupi/internal/guard"
 	"github.com/iheb-amiri/kupi/internal/kube"
 	"github.com/iheb-amiri/kupi/internal/kubeconfig"
 	"github.com/iheb-amiri/kupi/internal/live"
+	"github.com/iheb-amiri/kupi/internal/metrics"
 	"github.com/iheb-amiri/kupi/internal/profile"
 	"github.com/iheb-amiri/kupi/internal/trust"
 	"github.com/iheb-amiri/kupi/internal/validate"
@@ -43,7 +45,16 @@ type Deps struct {
 	Trust     *trust.Store
 	Profiles  *profile.Store
 	Live      *live.Manager
+	Metrics   *metrics.Manager
+	Forwards  *forward.Manager
 	ConfigDir string
+}
+
+// stopContext ends every stream, sampler and forward of a context.
+func (d Deps) stopContext(contextName string) {
+	d.Live.StopContext(contextName)
+	d.Metrics.Stop(contextName)
+	d.Forwards.StopContext(contextName)
 }
 
 // AppService reports facts about the running app.
@@ -176,7 +187,7 @@ func (s *ClusterService) Disconnect(contextName string) error {
 	if err := validate.ContextName(contextName); err != nil {
 		return err
 	}
-	s.d.Live.StopContext(contextName)
+	s.d.stopContext(contextName)
 	s.d.Kube.Disconnect(contextName)
 	s.d.Guard.Forget(contextName)
 	return nil
@@ -198,7 +209,7 @@ func (s *ClusterService) SetProfile(contextName, kind string) error {
 	if err := s.d.Profiles.Set(contextName, k); err != nil {
 		return err
 	}
-	s.d.Live.StopContext(contextName)
+	s.d.stopContext(contextName)
 	s.d.Kube.Disconnect(contextName)
 	s.d.Guard.Forget(contextName)
 	label := kind

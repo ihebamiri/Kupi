@@ -7,12 +7,16 @@ import type { Events } from "@wailsio/runtime";
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
+import type * as forward$0 from "../../../../iheb-amiri/kupi/internal/forward/models.js";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
 import type * as live$0 from "../../../../iheb-amiri/kupi/internal/live/models.js";
 
 declare module "@wailsio/runtime" {
     namespace Events {
         interface CustomEvents {
             "kupi:changed": live$0.Changed;
+            "kupi:forwards": forward$0.Changed;
             "kupi:logs": live$0.LogBatch;
             "kupi:shell": live$0.ShellChunk;
         }

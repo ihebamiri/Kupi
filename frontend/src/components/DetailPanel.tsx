@@ -1,6 +1,7 @@
 import { Suspense, lazy, useEffect, useState } from "react";
-import { RotateCcw, Scaling, Trash2, X } from "lucide-react";
+import { Cable, RotateCcw, Scaling, Trash2, X } from "lucide-react";
 import { KubectlButton } from "./CopyButton";
+import { ForwardDialog } from "./ForwardDialog";
 import { LogsView } from "./LogsView";
 import { ReviewDialog } from "./ReviewDialog";
 
@@ -22,7 +23,12 @@ import { age } from "../lib/format";
 import { kubectlDelete, kubectlRestart, kubectlScale, kubectlYaml, type KubeTarget } from "../lib/kubectl";
 import { useNav } from "../state/nav";
 
-type Tab = "overview" | "yaml" | "events" | "logs" | "shell";
+type Tab = "overview" | "metrics" | "yaml" | "events" | "logs" | "shell";
+
+const FORWARDABLE = new Set(["Pod", "Service", "Deployment", "StatefulSet", "DaemonSet", "ReplicaSet"]);
+
+// The chart library is only needed on the Metrics tab.
+const MetricsTab = lazy(() => import("./MetricsTab").then((m) => ({ default: m.MetricsTab })));
 
 const SCALABLE = new Set(["deployments", "statefulsets", "replicasets"]);
 const RESTARTABLE = new Set(["deployments", "statefulsets", "daemonsets"]);
@@ -38,11 +44,14 @@ interface DetailPanelProps {
 export function DetailPanel({ contextName, type, row, onClose }: DetailPanelProps) {
   const isPod = type.group === "" && type.resource === "pods";
   const isWorkload = type.group === "apps" || type.group === "batch" ? HAS_PODS.has(type.resource) : false;
-  const tabs: Tab[] = ["overview", "yaml", "events"];
+  const tabs: Tab[] = isPod ? ["overview", "metrics", "yaml", "events"] : ["overview", "yaml", "events"];
   if (isPod || isWorkload) tabs.push("logs");
   if (isPod) tabs.push("shell");
   const [tab, setTab] = useState<Tab>("overview");
   const [plan, setPlan] = useState<PlanView | null>(null);
+  const [forwarding, setForwarding] = useState(false);
+  const { navigate } = useNav();
+  const canForward = FORWARDABLE.has(type.kind) && (type.group === "" || type.group === "apps") && !!row.namespace;
   const [notice, setNotice] = useState<{ tone: "good" | "bad"; text: string } | null>(null);
   const [replicas, setReplicas] = useState("");
   const [busy, setBusy] = useState(false);
@@ -112,6 +121,11 @@ export function DetailPanel({ contextName, type, row, onClose }: DetailPanelProp
             Restart
           </Button>
         )}
+        {canForward && (
+          <Button icon={<Cable className="size-4" />} onClick={() => setForwarding(true)}>
+            Forward port
+          </Button>
+        )}
         {canDelete && (
           <Button variant="ghost" busy={busy} icon={<Trash2 className="size-4" />} title={kubectlDelete(target)} onClick={() => void prepare(() => GuardService.PrepareDelete(contextName, ref))}>
             Delete
@@ -144,6 +158,11 @@ export function DetailPanel({ contextName, type, row, onClose }: DetailPanelProp
 
       <div className="min-h-0 flex-1 overflow-hidden" role="tabpanel">
         {tab === "overview" && <Overview contextName={contextName} row={row} isPod={isPod} />}
+        {tab === "metrics" && isPod && (
+          <Suspense fallback={<p className="p-4 text-[13px] text-muted">Loading charts…</p>}>
+            <MetricsTab contextName={contextName} namespace={row.namespace} pod={row.name} />
+          </Suspense>
+        )}
         {tab === "yaml" && <YamlTab contextName={contextName} type={type} ref_={ref} />}
         {tab === "events" && <EventsTab contextName={contextName} row={row} />}
         {tab === "logs" && (
@@ -170,6 +189,17 @@ export function DetailPanel({ contextName, type, row, onClose }: DetailPanelProp
           setNotice({ tone: "good", text: `${result.message}. Audit entry #${result.auditSeq}.` });
         }}
       />
+      {canForward && (
+        <ForwardDialog
+          open={forwarding}
+          onClose={() => setForwarding(false)}
+          contextName={contextName}
+          kind={type.kind}
+          namespace={row.namespace}
+          name={row.name}
+          onStarted={() => navigate({ page: "forwards" })}
+        />
+      )}
     </aside>
   );
 }

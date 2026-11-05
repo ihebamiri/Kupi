@@ -14,10 +14,12 @@ import (
 	"github.com/iheb-amiri/kupi/internal/audit"
 	"github.com/iheb-amiri/kupi/internal/bridge"
 	"github.com/iheb-amiri/kupi/internal/buildmode"
+	"github.com/iheb-amiri/kupi/internal/forward"
 	"github.com/iheb-amiri/kupi/internal/guard"
 	"github.com/iheb-amiri/kupi/internal/kube"
 	"github.com/iheb-amiri/kupi/internal/kubeconfig"
 	"github.com/iheb-amiri/kupi/internal/live"
+	"github.com/iheb-amiri/kupi/internal/metrics"
 	"github.com/iheb-amiri/kupi/internal/profile"
 	"github.com/iheb-amiri/kupi/internal/trust"
 )
@@ -37,6 +39,7 @@ func init() {
 	application.RegisterEvent[live.Changed](live.EventChanged)
 	application.RegisterEvent[live.LogBatch](live.EventLogs)
 	application.RegisterEvent[live.ShellChunk](live.EventShell)
+	application.RegisterEvent[forward.Changed](forward.Event)
 }
 
 func main() {
@@ -58,13 +61,19 @@ func main() {
 			application.NewService(bridge.NewLogService(deps)),
 			application.NewService(bridge.NewShellService(deps)),
 			application.NewService(bridge.NewFormService(deps)),
+			application.NewService(bridge.NewMetricsService(deps)),
+			application.NewService(bridge.NewForwardService(deps)),
 		},
 		Assets: application.AssetOptions{
 			Handler:    application.AssetFileServerFS(assets),
 			Middleware: securityHeaders,
 		},
-		Linux:      application.LinuxOptions{ProgramName: "kupi"},
-		OnShutdown: deps.Live.StopAll,
+		Linux: application.LinuxOptions{ProgramName: "kupi"},
+		OnShutdown: func() {
+			deps.Live.StopAll()
+			deps.Forwards.StopAll()
+			deps.Metrics.StopAll()
+		},
 	})
 	emitter.Set(func(name string, data any) { app.Event.Emit(name, data) })
 
@@ -116,6 +125,8 @@ func buildDeps(emitter live.Emitter) (bridge.Deps, error) {
 		Trust:     trustStore,
 		Profiles:  profiles,
 		Live:      live.New(emitter),
+		Metrics:   metrics.New(),
+		Forwards:  forward.New(emitter),
 		ConfigDir: dir,
 	}, nil
 }

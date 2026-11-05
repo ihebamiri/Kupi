@@ -5,8 +5,10 @@ import * as AppService from "./appservice.js";
 import * as AuditService from "./auditservice.js";
 import * as ClusterService from "./clusterservice.js";
 import * as FormService from "./formservice.js";
+import * as ForwardService from "./forwardservice.js";
 import * as GuardService from "./guardservice.js";
 import * as LogService from "./logservice.js";
+import * as MetricsService from "./metricsservice.js";
 import * as ResourceService from "./resourceservice.js";
 import * as ShellService from "./shellservice.js";
 export {
@@ -14,8 +16,10 @@ export {
     AuditService,
     ClusterService,
     FormService,
+    ForwardService,
     GuardService,
     LogService,
+    MetricsService,
     ResourceService,
     ShellService
 };
@@ -30,10 +34,14 @@ export type {
     ContextInfo,
     EventView,
     LogRequest,
+    NodeMetrics,
     ParseResult,
     PlanView,
+    PodMetrics,
+    PortOption,
     ResourceRef,
     ResourceTypeView,
+    Resources,
     TableColumn,
     TableRow,
     TableView,

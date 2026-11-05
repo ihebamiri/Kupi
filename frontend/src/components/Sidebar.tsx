@@ -1,7 +1,8 @@
 import { useMemo, useState } from "react";
-import { ChevronDown, ChevronRight, FileCode, Search, ScrollText, Server } from "lucide-react";
+import { Cable, ChevronDown, ChevronRight, FileCode, Gauge, Search, ScrollText, Server } from "lucide-react";
 import type { ReactNode } from "react";
 import { useClusters } from "../state/clusters";
+import { useForwards } from "../state/forwards";
 import { useNav, type Route } from "../state/nav";
 import type { ResourceTypeView } from "../lib/api";
 
@@ -37,6 +38,7 @@ function NavButton({ active, onClick, icon, children, title, label }: { active: 
 export function Sidebar({ version }: { version: string }) {
   const { route, navigate, types, typesError } = useNav();
   const { active } = useClusters();
+  const forwards = useForwards();
   const [filter, setFilter] = useState("");
   const [open, setOpen] = useState<Set<string>>(DEFAULT_OPEN);
 
@@ -80,6 +82,15 @@ export function Sidebar({ version }: { version: string }) {
       <div className="flex flex-col gap-0.5 p-2">
         <NavButton label="Clusters" active={is({ page: "clusters" })} onClick={() => navigate({ page: "clusters" })} icon={<Server className="size-4" aria-hidden />}>
           Clusters
+        </NavButton>
+        {active && (
+          <NavButton label="Overview" active={is({ page: "overview" })} onClick={() => navigate({ page: "overview" })} icon={<Gauge className="size-4" aria-hidden />}>
+            Overview
+          </NavButton>
+        )}
+        <NavButton label="Port forwards" active={is({ page: "forwards" })} onClick={() => navigate({ page: "forwards" })} icon={<Cable className="size-4" aria-hidden />}>
+          Port forwards
+          {forwards.length > 0 && <span className="ml-1 rounded bg-accent/20 px-1 text-[11px] text-accent">{forwards.length}</span>}
         </NavButton>
         <NavButton label="Create or edit" active={route.page === "apply"} onClick={() => navigate({ page: "apply" })} icon={<FileCode className="size-4" aria-hidden />}>
           Create or edit

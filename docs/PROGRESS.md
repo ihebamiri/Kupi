@@ -7,7 +7,7 @@ Scope of the current build: v0.1 + the v0.2 Observe canvas and v0.2 features, pe
 - [x] 1. Foundation: kubeconfig loading, trust prompt, profiles, sessions, Guard, audit log, security headers, architecture tests. Reviewed and committed.
 - [x] 2. Core views: resource browser (all types via discovery), logs, shell, events.
 - [x] 3. Forms with YAML sync (hand-designed forms for the main types, generated forms for the rest).
-- [ ] 4. Live metrics and port-forward manager.
+- [x] 4. Live metrics and port-forward manager.
 - [ ] 5. Observe canvas.
 - [ ] 6. Images and k3d local clusters.
 - [ ] 7. Secrets and local vault.
@@ -69,6 +69,19 @@ Done and verified:
 
 - "Edit with form or YAML" on a live object verified in the UI; every form input has an accessible name.
 - Integration test `internal/bridge/integration_test.go`: clean editable YAML, stable YAML round trip, Secrets refused, selector matching, schemas.
+
+## Milestone 4 status
+
+Done and verified (unit tests, k3d integration test, clicked through in server mode):
+
+- Metrics from metrics-server (`internal/metrics`): a sampler per context that runs only while a metrics view is open and stops after 2 idle minutes; one hour of history at 10 s in memory. Overview page (nodes against allocatable, busiest pods) and a pod Metrics tab (uPlot charts with request and limit lines). A missing metrics-server is reported in plain words.
+- Port-forward manager (`internal/forward`): Pods, Services (targetPort names resolved) and workloads; picks a ready pod; listens on 127.0.0.1 only; reconnects to a replacement pod on the same local port. Verified by deleting the pod behind a live forward: traffic kept flowing on the same port. RBAC `pods/portforward` checked first; every forward start is audited.
+- Charts load only with the Metrics tab (54 KB chunk).
+
+Not yet:
+
+- Prometheus as a metrics source, and the kubelet summary fallback for clusters without metrics-server.
+- System tray list of forwards; saved forwards per project.
 
 ## Environment
 

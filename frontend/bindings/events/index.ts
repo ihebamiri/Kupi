@@ -14,6 +14,11 @@ import "../github.com/wailsapp/wails/v3/internal/eventcreate.js";
 export const KupiChanged = "kupi:changed";
 
 /**
+ * Name of the custom event "kupi:forwards".
+ */
+export const KupiForwards = "kupi:forwards";
+
+/**
  * Name of the custom event "kupi:logs".
  */
 export const KupiLogs = "kupi:logs";
