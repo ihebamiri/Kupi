@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<MsixPackagingToolTemplate
+    xmlns="http://schemas.microsoft.com/msix/packaging/msixpackagingtool/template/2022">
+    <Settings
+        AllowTelemetry="false"
+        ApplyACLsToPackageFiles="true"
+        GenerateCommandLineFile="true"
+        AllowPromptForPassword="false">
+    </Settings>
+    <Installer
+        Path="kupi.exe"
+        Arguments=""
+        InstallLocation="C:\Program Files\Kupi contributors\Kupi">
+    </Installer>
+    <PackageInformation
+        PackageName="Kupi"
+        PackageDisplayName="Kupi"
+        PublisherName="CN=Kupi contributors"
+        PublisherDisplayName="Kupi contributors"
+        Version="0.1.0.0"
+        PackageDescription="Kubernetes Pilot: a desktop app for managing Kubernetes clusters">
+        <Capabilities>
+            <Capability Name="runFullTrust" />
+            
+        </Capabilities>
+        <Applications>
+            <Application
+                Id="io.github.ihebamiri.kupi"
+                Description="Kubernetes Pilot: a desktop app for managing Kubernetes clusters"
+                DisplayName="Kupi"
+                ExecutableName="kupi.exe"
+                EntryPoint="Windows.FullTrustApplication">
+                
+            </Application>
+        </Applications>
+        <Resources>
+            <Resource Language="en-us" />
+        </Resources>
+        <Dependencies>
+            <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.17763.0" MaxVersionTested="10.0.19041.0" />
+        </Dependencies>
+        <Properties>
+            <Framework>false</Framework>
+            <DisplayName>Kupi</DisplayName>
+            <PublisherDisplayName>Kupi contributors</PublisherDisplayName>
+            <Description>Kubernetes Pilot: a desktop app for managing Kubernetes clusters</Description>
+            <Logo>Assets\AppIcon.png</Logo>
+        </Properties>
+    </PackageInformation>
+    <SaveLocation PackagePath="kupi.msix" />
+    <PackageIntegrity>
+        <CertificatePath></CertificatePath>
+    </PackageIntegrity>
+</MsixPackagingToolTemplate>

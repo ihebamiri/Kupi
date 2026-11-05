@@ -1,0 +1,61 @@
+version: '3'
+
+vars:
+  APP_NAME: "kupi"
+  BIN_DIR: "bin"
+  PACKAGE_MANAGER: '{{.PACKAGE_MANAGER | default "npm"}}'
+  VITE_PORT: '{{.WAILS_VITE_PORT | default 9245}}'
+  # Target OS for build/package/run. Defaults to the host OS. Kupi ships for
+  # Linux first, then Windows; macOS is not planned.
+  GOOS: '{{.GOOS | default OS}}'
+
+includes:
+  common: ./build/Taskfile.yml
+  windows: ./build/windows/Taskfile.yml
+  linux: ./build/linux/Taskfile.yml
+
+tasks:
+  build:
+    summary: Builds the application
+    cmds:
+      - task: "{{.GOOS}}:build"
+
+  package:
+    summary: Packages a production build of the application
+    cmds:
+      - task: "{{.GOOS}}:package"
+
+  run:
+    summary: Runs the application
+    cmds:
+      - task: "{{.GOOS}}:run"
+
+  dev:
+    summary: Runs the application in development mode
+    cmds:
+      - wails3 dev -config ./build/config.yml -port {{.VITE_PORT}}
+
+  test:
+    summary: Runs Go unit tests and frontend tests
+    cmds:
+      - go test ./...
+      - task: common:frontend:run
+        vars:
+          SCRIPT: test
+
+  test:integration:
+    summary: Runs integration tests against the k3d cluster named kupi-test
+    cmds:
+      - go test -tags integration -count=1 ./...
+
+  cluster:up:
+    summary: Creates the local k3d test cluster used by integration tests
+    cmds:
+      # Bind the API to 127.0.0.1: on Windows, k3d's default host.docker.internal
+      # address often resolves to a stale IP.
+      - k3d cluster create kupi-test --api-port 127.0.0.1:6550 --wait --kubeconfig-switch-context=false
+
+  cluster:down:
+    summary: Deletes the local k3d test cluster
+    cmds:
+      - k3d cluster delete kupi-test

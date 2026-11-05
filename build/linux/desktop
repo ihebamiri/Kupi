@@ -1,0 +1,13 @@
+[Desktop Entry]
+Version=1.0
+Name=Kupi
+Comment=Kubernetes Pilot: a desktop app for managing Kubernetes clusters
+# The Exec line includes %u to pass the URL to the application
+Exec=/usr/local/bin/kupi.exe %u
+Terminal=false
+Type=Application
+Icon=kupi.exe
+Categories=Utility;
+StartupWMClass=kupi.exe
+
+ 
