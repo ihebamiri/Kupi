@@ -55,7 +55,13 @@ wails3 task test:integration
 
 If Go runs out of memory while building, add `-p 2` to `go build` and `go test`.
 
-See [docs/TESTING.md](docs/TESTING.md) for the hands-on checklist, [docs/PROGRESS.md](docs/PROGRESS.md) for what's done, and [CLAUDE.md](CLAUDE.md) for the architecture and security rules.
+## Documentation
+
+- [User guide](docs/USER_GUIDE.md): where everything is and what it does.
+- [How Kupi works](docs/ARCHITECTURE.md): the components and how they fit together, from the ground up.
+- [Testing on Windows](docs/TESTING-WINDOWS.md): step-by-step manual test, including the prerequisites and their versions.
+- [Progress](docs/PROGRESS.md): what's done, verified and still missing, milestone by milestone.
+- [CLAUDE.md](CLAUDE.md): the architecture and security rules for contributors.
 
 ## License
 

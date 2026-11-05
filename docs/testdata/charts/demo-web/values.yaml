@@ -1,0 +1,6 @@
+# Copies of the web server.
+replicas: 1
+# Shown in the ConfigMap demo-web-config.
+greeting: hello
+# Stored in the Secret demo-web-auth. Kupi hides it in manifests and diffs.
+adminPassword: change-me

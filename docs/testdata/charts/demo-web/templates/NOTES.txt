@@ -1,0 +1,1 @@
+demo-web is running. Forward port 8080 of the Deployment {{ .Release.Name }} to open it.

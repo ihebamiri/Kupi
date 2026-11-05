@@ -15,6 +15,7 @@ import (
 	"helm.sh/helm/v4/pkg/action"
 	"helm.sh/helm/v4/pkg/chart/common"
 	chartv2 "helm.sh/helm/v4/pkg/chart/v2"
+	"helm.sh/helm/v4/pkg/chart/v2/loader"
 	helmkube "helm.sh/helm/v4/pkg/kube"
 
 	"github.com/iheb-amiri/kupi/internal/kubeconfig"
@@ -122,38 +123,10 @@ func TestInstallDemoRelease(t *testing.T) {
 	if _, err := h.HelmRelease(ctx, "kupi-demo", "demo-web", 0); err == nil {
 		t.Skip("demo-web is already installed")
 	}
-	tpl := func(name, body string) *common.File {
-		return &common.File{Name: "templates/" + name, Data: []byte(body)}
-	}
-	ch := &chartv2.Chart{
-		Metadata: &chartv2.Metadata{APIVersion: "v2", Name: "demo-web", Version: "1.2.0", AppVersion: "1.27", Description: "A small web server for trying Kupi's Helm page.", Type: "application"},
-		Templates: []*common.File{
-			tpl("config.yaml", "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: {{ .Release.Name }}-config\ndata:\n  greeting: {{ .Values.greeting | quote }}\n"),
-			tpl("secret.yaml", "apiVersion: v1\nkind: Secret\nmetadata:\n  name: {{ .Release.Name }}-auth\nstringData:\n  adminPassword: {{ .Values.adminPassword | quote }}\n"),
-			tpl("deployment.yaml", `apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: {{ .Release.Name }}
-spec:
-  replicas: {{ .Values.replicas }}
-  selector:
-    matchLabels: {app: {{ .Release.Name }}}
-  template:
-    metadata:
-      labels: {app: {{ .Release.Name }}}
-    spec:
-      securityContext: {runAsNonRoot: true, seccompProfile: {type: RuntimeDefault}}
-      containers:
-        - name: web
-          image: nginxinc/nginx-unprivileged:1.27-alpine
-          ports: [{containerPort: 8080}]
-          resources: {requests: {cpu: 10m, memory: 16Mi}, limits: {memory: 64Mi}}
-          securityContext: {allowPrivilegeEscalation: false, capabilities: {drop: [ALL]}}
-`),
-			tpl("NOTES.txt", "demo-web is running. Forward port 8080 of the Deployment {{ .Release.Name }} to open it.\n"),
-		},
-		Values: map[string]any{"replicas": 1, "greeting": "hello", "adminPassword": "change-me"},
-		Schema: []byte(`{"type":"object","properties":{"replicas":{"type":"integer","minimum":0,"maximum":10}},"required":["replicas"]}`),
+	// The same chart people can install with the Helm CLI.
+	ch, err := loader.Load(filepath.Join("..", "..", "docs", "testdata", "charts", "demo-web"))
+	if err != nil {
+		t.Fatal(err)
 	}
 	cfg, err := h.config("kupi-demo")
 	if err != nil {
