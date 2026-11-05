@@ -49,6 +49,7 @@ export function CommandPalette() {
           <Command.Item className={item} onSelect={() => run(() => navigate({ page: "forwards" }))}>Port forwards</Command.Item>
           <Command.Item className={item} onSelect={() => run(() => navigate({ page: "images" }))}>Images (local and Docker Hub)</Command.Item>
           <Command.Item className={item} onSelect={() => run(() => navigate({ page: "local" }))}>Local clusters (k3d)</Command.Item>
+          <Command.Item className={item} onSelect={() => run(() => navigate({ page: "vault" }))}>Vault (encrypted local secrets)</Command.Item>
           {active && (
             <Command.Item className={item} onSelect={() => run(() => navigate({ page: "overview" }))}>
               Overview (CPU and memory)
@@ -57,6 +58,11 @@ export function CommandPalette() {
           {active && (
             <Command.Item className={item} onSelect={() => run(() => navigate({ page: "canvas" }))}>
               Map (how everything connects)
+            </Command.Item>
+          )}
+          {active && (
+            <Command.Item className={item} onSelect={() => run(() => navigate({ page: "secrets" }))}>
+              Secrets (and exposure scan)
             </Command.Item>
           )}
         </Command.Group>

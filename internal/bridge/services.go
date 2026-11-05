@@ -21,6 +21,7 @@ import (
 
 	"github.com/iheb-amiri/kupi/internal/audit"
 	"github.com/iheb-amiri/kupi/internal/buildmode"
+	"github.com/iheb-amiri/kupi/internal/clipboard"
 	"github.com/iheb-amiri/kupi/internal/forward"
 	"github.com/iheb-amiri/kupi/internal/guard"
 	"github.com/iheb-amiri/kupi/internal/kube"
@@ -30,6 +31,7 @@ import (
 	"github.com/iheb-amiri/kupi/internal/profile"
 	"github.com/iheb-amiri/kupi/internal/trust"
 	"github.com/iheb-amiri/kupi/internal/validate"
+	"github.com/iheb-amiri/kupi/internal/vault"
 	"github.com/iheb-amiri/kupi/internal/version"
 )
 
@@ -48,6 +50,8 @@ type Deps struct {
 	Metrics   *metrics.Manager
 	Forwards  *forward.Manager
 	Emit      live.Emitter
+	Clipboard *clipboard.Secure
+	Vault     *vault.Vault
 	ConfigDir string
 }
 

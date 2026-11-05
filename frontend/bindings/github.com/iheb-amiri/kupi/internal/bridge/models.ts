@@ -4,6 +4,9 @@
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
 import * as metrics$0 from "../metrics/models.js";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
+import * as secrets$0 from "../secrets/models.js";
 
 /**
  * AppInfo describes the running app.
@@ -111,6 +114,14 @@ export interface EngineInfo {
     "version": string;
     "endpoint": string;
     "reason": string;
+}
+
+/**
+ * EnvCopy reports what "Copy as .env" put on the clipboard.
+ */
+export interface EnvCopy {
+    "keys": number;
+    "skipped": string[] | null;
 }
 
 /**
@@ -288,6 +299,18 @@ export interface Resources {
 }
 
 /**
+ * RevealedValue is one Secret value the user asked to see.
+ */
+export interface RevealedValue {
+    "value": string;
+
+    /**
+     * Encoding is "text", or "base64" for binary values.
+     */
+    "encoding": string;
+}
+
+/**
  * SearchView is one registry search hit.
  */
 export interface SearchView {
@@ -301,6 +324,27 @@ export interface SearchView {
      * trick for passing off malicious images.
      */
     "looksLike": string;
+}
+
+/**
+ * SecretView is a Secret's details plus what revealing a value needs.
+ */
+export interface SecretView {
+    "details": secrets$0.Details;
+    "revealNeedsReason": boolean;
+    "clearAfterSeconds": number;
+}
+
+/**
+ * SecretWriteRequest creates a Secret or changes some of its keys. Keys not
+ * named are left untouched on the server.
+ */
+export interface SecretWriteRequest {
+    "namespace": string;
+    "name": string;
+    "type": string;
+    "set": { [_ in string]?: string } | null;
+    "delete": string[] | null;
 }
 
 /**

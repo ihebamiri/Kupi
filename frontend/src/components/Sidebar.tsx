@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Cable, ChevronDown, ChevronRight, FileCode, Gauge, Laptop, Layers, Search, ScrollText, Server, Workflow } from "lucide-react";
+import { Cable, ChevronDown, ChevronRight, FileCode, Gauge, KeyRound, Laptop, Layers, Search, ScrollText, Server, Vault, Workflow } from "lucide-react";
 import type { ReactNode } from "react";
 import { useClusters } from "../state/clusters";
 import { useForwards } from "../state/forwards";
@@ -93,6 +93,14 @@ export function Sidebar({ version }: { version: string }) {
             Map
           </NavButton>
         )}
+        {active && (
+          <NavButton label="Secrets" active={route.page === "secrets"} onClick={() => navigate({ page: "secrets" })} icon={<KeyRound className="size-4" aria-hidden />}>
+            Secrets
+          </NavButton>
+        )}
+        <NavButton label="Vault" active={is({ page: "vault" })} onClick={() => navigate({ page: "vault" })} icon={<Vault className="size-4" aria-hidden />}>
+          Vault
+        </NavButton>
         <NavButton label="Images" active={is({ page: "images" })} onClick={() => navigate({ page: "images" })} icon={<Layers className="size-4" aria-hidden />}>
           Images
         </NavButton>

@@ -10,7 +10,7 @@ Scope of the current build: v0.1 + the v0.2 Observe canvas and v0.2 features, pe
 - [x] 4. Live metrics and port-forward manager.
 - [x] 5. Observe canvas.
 - [x] 6. Images and k3d local clusters.
-- [ ] 7. Secrets and local vault.
+- [x] 7. Secrets and local vault.
 - [ ] 8. Helm, Argo CD / Flux awareness, resource history, incident view, laptop mode.
 - [ ] 9. Final checks before maintainer testing.
 
@@ -110,6 +110,30 @@ Not yet:
 - Image vulnerability scanning and signature checks (design: v0.3).
 - Private registry logins for pulls (comes with the secrets milestone).
 - Tag lists for registries other than Docker Hub.
+
+## Milestone 7 status
+
+Done and verified (unit tests, k3d integration test, clicked through in server mode):
+
+- Secrets page (`internal/secrets`, `SecretService`): key names and sizes only; TLS details (names, expiry, chain, key match, weak keys); registry servers for pull secrets; who uses the Secret (env, envFrom, volumes, projected volumes, image pull secrets, Ingress TLS, service accounts) and which workloads need a restart to see changes, with a Restart button through the Guard.
+- Values leave Go only when the user reveals one key. Every reveal and copy is written to the audit log first; production asks for a reason (`guard.RecordAccess`). Revealed values hide again after 30 s. Copy goes from Go straight to the system clipboard (`internal/clipboard`), so the UI never holds the value, and the clipboard is cleared after 30 s if it still holds it (and on exit).
+- Editing goes through the Guard as a merge patch with a resourceVersion precondition: only keys the user replaces, adds or removes are sent; current values are never loaded into the form. The review diff shows key names only. Create forms for Opaque, TLS (certificate and key checked as a pair first), registry login (`.dockerconfigjson` built in Go), basic-auth and ssh-auth; `.env` import; masked inputs with spellcheck and autofill off.
+- Managed-by detection with a warning before editing: External Secrets, Sealed Secrets, cert-manager, Flux (possibly SOPS), Argo CD, Helm, service-account tokens, Helm release records. Helm release records and token Secrets can't be edited.
+- Exposure scan: credentials in ConfigMaps, plain env values and command-line flags (by name and by shape: private keys, cloud and Git tokens, JWTs, passwords in URLs), and Secrets whose values kubectl copied into the last-applied annotation. Findings never include the value. No false positives on a fresh k3s cluster.
+- Local vault (`internal/vault`, `VaultService`): items of key/value pairs encrypted with age (X25519). The key lives in Windows Credential Manager / the Secret Service / KWallet (99designs/keyring), or in a passphrase-protected file (age scrypt) when there is none. Writes need only the public key. Auto-locks after 15 minutes. "Create Secret" sends an item to a cluster through the Guard review. Deleting the vault needs typed confirmation. A config dir set through `KUPI_CONFIG_DIR` gets its own password-store entry, so tests never touch the real vault key.
+- New dependencies, both named in the design doc: `filippo.io/age`, `github.com/99designs/keyring`.
+
+Not verified:
+
+- Copy to the native clipboard: server mode has no clipboard, so only the unit test covers it. Check in the desktop window.
+- The Secret Service and KWallet paths of the vault (only Windows Credential Manager was exercised). Check in WSL2/Linux.
+
+Known limits:
+
+- Windows clipboard history (Win+V) and cloud clipboard can keep a copied value; Kupi only clears the current clipboard. Follow-up: set the "exclude from history" clipboard formats on Windows.
+- Go can't reliably wipe strings, so decrypted vault values stay in process memory until garbage-collected after locking.
+- SOPS, Sealed Secrets and External Secrets are detected and explained, not created or decrypted.
+- Kupi's own image pulls (Images page) still don't use registry logins.
 
 ## Environment
 

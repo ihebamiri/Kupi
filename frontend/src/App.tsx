@@ -14,6 +14,8 @@ import { ImagesPage } from "./pages/ImagesPage";
 import { LocalClustersPage } from "./pages/LocalClustersPage";
 import { OverviewPage } from "./pages/OverviewPage";
 import { ResourcesPage } from "./pages/ResourcesPage";
+import { SecretsPage } from "./pages/SecretsPage";
+import { VaultPage } from "./pages/VaultPage";
 import { ClustersProvider } from "./state/clusters";
 import { NavProvider, useNav } from "./state/nav";
 
@@ -21,7 +23,7 @@ function Main() {
   const { route, navigate } = useNav();
   const openPods = () => navigate({ page: "overview" });
   return (
-    <main className={`min-h-0 flex-1 px-6 py-5 ${route.page === "resources" || route.page === "apply" || route.page === "canvas" ? "overflow-hidden" : "overflow-y-auto"}`}>
+    <main className={`min-h-0 flex-1 px-6 py-5 ${route.page === "resources" || route.page === "apply" || route.page === "canvas" || route.page === "secrets" ? "overflow-hidden" : "overflow-y-auto"}`}>
       {route.page === "clusters" && <ClustersPage onOpened={openPods} />}
       {route.page === "apply" && (
         <Suspense fallback={<p className="text-[13px] text-muted">Loading the editor…</p>}>
@@ -44,6 +46,8 @@ function Main() {
       {route.page === "forwards" && <ForwardsPage />}
       {route.page === "images" && <ImagesPage />}
       {route.page === "local" && <LocalClustersPage />}
+      {route.page === "secrets" && <SecretsPage key={`${route.namespace ?? ""}/${route.name ?? ""}`} initial={route.name ? { namespace: route.namespace ?? "", name: route.name } : undefined} />}
+      {route.page === "vault" && <VaultPage />}
       {/* Keyed by type so selection and sort never carry over to another type. */}
       {route.page === "resources" && <ResourcesPage key={`${route.group}/${route.resource}`} group={route.group} resource={route.resource} />}
     </main>

@@ -286,7 +286,12 @@ function YamlTab({ contextName, type, ref_ }: { contextName: string; type: Resou
     <div className="flex h-full flex-col">
       <div className="flex items-center gap-2 border-b border-line px-4 py-2 text-[12px] text-muted">
         {isSecret ? (
-          <span>Secret values are hidden. Editing Secrets comes with the secrets screen.</span>
+          <>
+            <span>Secret values are hidden.</span>
+            <Button className="ml-auto" onClick={() => navigate({ page: "secrets", namespace: ref_.namespace, name: ref_.name })}>
+              Open in Secrets
+            </Button>
+          </>
         ) : (
           <>
             <span>Read-only view.</span>

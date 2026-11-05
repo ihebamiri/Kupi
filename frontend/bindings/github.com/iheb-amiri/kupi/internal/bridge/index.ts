@@ -13,7 +13,9 @@ import * as LocalClusterService from "./localclusterservice.js";
 import * as LogService from "./logservice.js";
 import * as MetricsService from "./metricsservice.js";
 import * as ResourceService from "./resourceservice.js";
+import * as SecretService from "./secretservice.js";
 import * as ShellService from "./shellservice.js";
+import * as VaultService from "./vaultservice.js";
 export {
     AppService,
     AuditService,
@@ -27,7 +29,9 @@ export {
     LogService,
     MetricsService,
     ResourceService,
-    ShellService
+    SecretService,
+    ShellService,
+    VaultService
 };
 
 export type {
@@ -39,6 +43,7 @@ export type {
     ContainerView,
     ContextInfo,
     EngineInfo,
+    EnvCopy,
     EventView,
     ImageDetailView,
     ImageView,
@@ -53,7 +58,10 @@ export type {
     ResourceRef,
     ResourceTypeView,
     Resources,
+    RevealedValue,
     SearchView,
+    SecretView,
+    SecretWriteRequest,
     TableColumn,
     TableRow,
     TableView,

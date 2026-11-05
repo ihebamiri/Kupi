@@ -13,7 +13,9 @@ export {
   LogService,
   MetricsService,
   ResourceService,
+  SecretService,
   ShellService,
+  VaultService,
 } from "../../bindings/github.com/iheb-amiri/kupi/internal/bridge";
 
 export type {
@@ -21,10 +23,14 @@ export type {
   ImageDetailView,
   ImageView,
   LayerView,
+  EnvCopy,
   NodeMetrics,
   PodMetrics,
   PortOption,
   PullEvent,
+  RevealedValue,
+  SecretView,
+  SecretWriteRequest,
   Resources,
   SearchView,
   TagView,
@@ -32,6 +38,8 @@ export type {
 export type { DiskUsage } from "../../bindings/github.com/iheb-amiri/kupi/internal/engine";
 export type { Cluster as LocalCluster, CreateOptions, Tool } from "../../bindings/github.com/iheb-amiri/kupi/internal/localk8s";
 export type { NodeUsage, Overview, PodUsage, Sample, Status as MetricsStatus } from "../../bindings/github.com/iheb-amiri/kupi/internal/metrics";
+export type { Details as SecretDetails, Finding, Key as SecretKey, ScanResult, TLSInfo, Usage as SecretUsage } from "../../bindings/github.com/iheb-amiri/kupi/internal/secrets";
+export type { ItemInfo as VaultItem, Status as VaultStatus } from "../../bindings/github.com/iheb-amiri/kupi/internal/vault";
 export type { Changed as ForwardsChanged, Forward, Target as ForwardTarget } from "../../bindings/github.com/iheb-amiri/kupi/internal/forward";
 
 export type {

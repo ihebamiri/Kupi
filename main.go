@@ -6,6 +6,7 @@ import (
 	"embed"
 	"log"
 	"net/http"
+	"os"
 	"path/filepath"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
@@ -14,6 +15,7 @@ import (
 	"github.com/iheb-amiri/kupi/internal/audit"
 	"github.com/iheb-amiri/kupi/internal/bridge"
 	"github.com/iheb-amiri/kupi/internal/buildmode"
+	"github.com/iheb-amiri/kupi/internal/clipboard"
 	"github.com/iheb-amiri/kupi/internal/forward"
 	"github.com/iheb-amiri/kupi/internal/guard"
 	"github.com/iheb-amiri/kupi/internal/kube"
@@ -22,6 +24,7 @@ import (
 	"github.com/iheb-amiri/kupi/internal/metrics"
 	"github.com/iheb-amiri/kupi/internal/profile"
 	"github.com/iheb-amiri/kupi/internal/trust"
+	"github.com/iheb-amiri/kupi/internal/vault"
 )
 
 //go:embed all:frontend/dist
@@ -67,6 +70,8 @@ func main() {
 			application.NewService(bridge.NewCanvasService(deps)),
 			application.NewService(bridge.NewImageService(deps)),
 			application.NewService(bridge.NewLocalClusterService(deps)),
+			application.NewService(bridge.NewSecretService(deps)),
+			application.NewService(bridge.NewVaultService(deps)),
 		},
 		Assets: application.AssetOptions{
 			Handler:    application.AssetFileServerFS(assets),
@@ -77,9 +82,12 @@ func main() {
 			deps.Live.StopAll()
 			deps.Forwards.StopAll()
 			deps.Metrics.StopAll()
+			deps.Clipboard.Close()
+			deps.Vault.Close()
 		},
 	})
 	emitter.Set(func(name string, data any) { app.Event.Emit(name, data) })
+	deps.Clipboard.Attach(app.Clipboard)
 
 	app.Window.NewWithOptions(application.WebviewWindowOptions{
 		Title:                      "Kupi",
@@ -114,6 +122,12 @@ func buildDeps(emitter live.Emitter) (bridge.Deps, error) {
 	if err != nil {
 		return bridge.Deps{}, err
 	}
+	// A config dir set through KUPI_CONFIG_DIR (tests, portable setups) gets its
+	// own password-store entry, so it never touches the default vault key.
+	keys := vault.OSKeyStore{}
+	if os.Getenv(appdir.EnvOverride) != "" {
+		keys.Key = vault.KeyNameFor(dir)
+	}
 	manager := kube.NewManager(kubeconfig.NewLoader(), trustStore, profiles)
 	sessions := guard.SessionsFunc(func(name string) (guard.Session, bool) {
 		s, ok := manager.Session(name)
@@ -132,6 +146,8 @@ func buildDeps(emitter live.Emitter) (bridge.Deps, error) {
 		Metrics:   metrics.New(),
 		Forwards:  forward.New(emitter),
 		Emit:      emitter,
+		Clipboard: &clipboard.Secure{},
+		Vault:     vault.New(dir, keys),
 		ConfigDir: dir,
 	}, nil
 }
