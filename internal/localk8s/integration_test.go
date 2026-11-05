@@ -7,6 +7,8 @@ import (
 	"os/exec"
 	"testing"
 	"time"
+
+	"github.com/iheb-amiri/kupi/internal/engine"
 )
 
 // TestLoadImageIntoK3d loads a local-only tag into the kupi-test cluster and
@@ -27,5 +29,34 @@ func TestLoadImageIntoK3d(t *testing.T) {
 	t.Cleanup(func() { _ = exec.Command("docker", "rmi", tag).Run() })
 	if _, err := LoadImage(ctx, "k3d-kupi-test", tag); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// TestK3dUsageAndLimits measures kupi-test and caps then uncaps its nodes.
+func TestK3dUsageAndLimits(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+	eng, err := engine.Detect(ctx)
+	if err != nil {
+		t.Skip("no container engine")
+	}
+	u, err := K3dUsage(ctx, eng, "kupi-test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(u.Nodes) == 0 || u.MemUsage <= 0 || u.HostMem <= 0 || u.HostCPUs <= 0 {
+		t.Fatalf("usage = %+v", u)
+	}
+	t.Logf("kupi-test uses %d MB and %.2f cores of %d MB / %d CPUs", u.MemUsage>>20, u.CPUCores, u.HostMem>>20, u.HostCPUs)
+	t.Cleanup(func() { _ = SetK3dLimits(context.Background(), eng, "kupi-test", 0, 0) })
+	if err := SetK3dLimits(ctx, eng, "kupi-test", 2048, 1.5); err != nil {
+		t.Fatal(err)
+	}
+	capped, _ := K3dUsage(ctx, eng, "kupi-test")
+	if n := capped.Nodes[0]; n.MemCap != 2048<<20 || n.CPUCap != 1.5 {
+		t.Errorf("caps not applied: %+v", n)
+	}
+	if err := SetK3dLimits(ctx, eng, "kupi-test", 100, 0); err == nil {
+		t.Error("a cap below the minimum was accepted")
 	}
 }

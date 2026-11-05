@@ -56,16 +56,19 @@ import (
 	"os/exec"
 	"k8s.io/client-go/dynamic"
 	_ "k8s.io/client-go/kubernetes/scheme"
+	_ "helm.sh/helm/v4/pkg/action"
+	_ "helm.sh/helm/v4/pkg/release/v1"
 )
 
-func f(s interface{ Mutator() int }) {
+func f(s interface{ Mutator() int; HelmMutator() int }) {
 	_ = s.Mutator()
+	_ = s.HelmMutator()
 	_ = exec.Command("bash", "-c", "echo hi")
 	var _ dynamic.Interface
 }
 `
 	problems := CheckGo("internal/feature/f.go", []byte(src))
-	want := []string{"imports k8s.io/client-go/dynamic", "calls Mutator()", `runs the shell "bash"`}
+	want := []string{"imports k8s.io/client-go/dynamic", "imports helm.sh/helm/v4/pkg/action", "calls Mutator()", "calls HelmMutator()", `runs the shell "bash"`}
 	if len(problems) != len(want) {
 		t.Fatalf("got %d problems, want %d: %v", len(problems), len(want), problems)
 	}

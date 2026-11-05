@@ -19,6 +19,9 @@ const ACTION_LABEL: Record<string, string> = {
   delete: "Delete",
   scale: "Scale",
   restart: "Restart",
+  "helm-upgrade": "Upgrade",
+  "helm-rollback": "Roll back",
+  "helm-uninstall": "Uninstall",
 };
 
 /**
@@ -42,7 +45,7 @@ export function ReviewDialog({ plan, onClose, onCommitted, onTakeOver }: ReviewD
   const summary = plan.summary ?? [];
   const warnings = plan.warnings ?? [];
   const conflicts = plan.conflicts ?? [];
-  const destructive = plan.action === "delete";
+  const destructive = plan.action === "delete" || plan.action === "helm-uninstall";
 
   const close = () => {
     void GuardService.Cancel(plan.id);

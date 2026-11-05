@@ -11,7 +11,7 @@ import { kubectlGet } from "../lib/kubectl";
 import { useClusters } from "../state/clusters";
 import { useNav } from "../state/nav";
 
-export function ResourcesPage({ group, resource }: { group: string; resource: string }) {
+export function ResourcesPage({ group, resource, select }: { group: string; resource: string; select?: { namespace: string; name: string } }) {
   const { active, namespace } = useClusters();
   const { findType, types } = useNav();
   const type = findType(group, resource);
@@ -47,6 +47,17 @@ export function ResourcesPage({ group, resource }: { group: string; resource: st
       return null;
     }
   }, [contextName, typeRef, ns]);
+
+  // Open the object another page pointed at, once the list has it.
+  const preselected = useRef(false);
+  useEffect(() => {
+    if (!select || preselected.current || !table) return;
+    const row = (table.rows ?? []).find((r) => r.name === select.name && (r.namespace ?? "") === select.namespace);
+    if (row) {
+      preselected.current = true;
+      setSelectedUid(row.uid);
+    }
+  }, [select, table]);
 
   // Load, then watch for changes and reload when the cluster changes.
   useEffect(() => {

@@ -58,6 +58,8 @@ type Session interface {
 	DefaultNamespace() string
 	Reader() kube.Reader
 	Mutator() kube.Mutator
+	Helm() kube.HelmReader
+	HelmMutator() kube.HelmMutator
 }
 
 // Sessions looks up live sessions by context name.
@@ -99,6 +101,8 @@ type Plan struct {
 
 	diffHash string
 	exec     func(ctx context.Context, m kube.Mutator) error
+	// helmExec replaces exec for Helm actions.
+	helmExec func(ctx context.Context, m kube.HelmMutator) error
 	shell    *ShellRequest
 	used     bool
 }
@@ -262,7 +266,12 @@ func (g *Guard) Commit(ctx context.Context, planID string, c Confirmation) (*Res
 	if err != nil {
 		return nil, err
 	}
-	execErr := p.exec(ctx, s.Mutator())
+	var execErr error
+	if p.helmExec != nil {
+		execErr = p.helmExec(ctx, s.HelmMutator())
+	} else {
+		execErr = p.exec(ctx, s.Mutator())
+	}
 	entry := audit.Entry{
 		Context:    p.Context,
 		Profile:    string(p.Profile),
@@ -328,6 +337,12 @@ func actionPastTense(a Action) string {
 		return "Scaled"
 	case ActionRestart:
 		return "Restarted"
+	case ActionHelmUpgrade:
+		return "Upgraded"
+	case ActionHelmRollback:
+		return "Rolled back"
+	case ActionHelmUninstall:
+		return "Uninstalled"
 	}
 	return string(a)
 }

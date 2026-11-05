@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
-import { Play, Plus, Square, Trash2 } from "lucide-react";
+import { Gauge, Play, Plus, Square, Trash2 } from "lucide-react";
 import { Dialog } from "../components/Dialog";
 import { Badge, Button, Field, Notice, PageHeader, inputClass } from "../components/ui";
 import { LocalClusterService, errorMessage, type LocalCluster, type Tool } from "../lib/api";
+import { LaptopPanel } from "../components/LaptopPanel";
 import { useClusters } from "../state/clusters";
 
 /** Create, start, stop and delete k3d clusters on this computer. */
@@ -14,6 +15,7 @@ export function LocalClustersPage() {
   const [busy, setBusy] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [deleting, setDeleting] = useState<LocalCluster | null>(null);
+  const [laptop, setLaptop] = useState<string | null>(null);
   const hasK3d = (tools ?? []).some((t) => t.name === "k3d");
 
   const load = useCallback(async () => {
@@ -71,7 +73,8 @@ export function LocalClustersPage() {
       {clusters && clusters.length === 0 && <p className="text-[13px] text-muted">No k3d clusters yet.</p>}
       <ul className="flex flex-col gap-2">
         {(clusters ?? []).map((c) => (
-          <li key={c.name} className="flex items-center gap-3 rounded-lg border border-line bg-panel px-4 py-3">
+          <li key={c.name} className="rounded-lg border border-line bg-panel px-4 py-3">
+            <div className="flex items-center gap-3">
             <span className={`size-2 rounded-full ${c.running ? "bg-good" : "bg-line"}`} aria-hidden />
             <div className="min-w-0 flex-1">
               <div className="font-medium">{c.name}</div>
@@ -101,7 +104,12 @@ export function LocalClustersPage() {
                 Start
               </Button>
             )}
+            <Button variant="ghost" aria-expanded={laptop === c.name} icon={<Gauge className="size-4" />} onClick={() => setLaptop(laptop === c.name ? null : c.name)}>
+              Laptop mode
+            </Button>
             <Button variant="ghost" aria-label={`Delete ${c.name}`} icon={<Trash2 className="size-4" />} onClick={() => setDeleting(c)} />
+            </div>
+            {laptop === c.name && <LaptopPanel cluster={c} />}
           </li>
         ))}
       </ul>

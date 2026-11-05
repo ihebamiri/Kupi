@@ -1,3 +1,5 @@
+import { RECORDED_KINDS } from "../lib/managers";
+import { ObjectHistory } from "../pages/HistoryPage";
 import { Suspense, lazy, useEffect, useState } from "react";
 import { Cable, RotateCcw, Scaling, Trash2, X } from "lucide-react";
 import { KubectlButton } from "./CopyButton";
@@ -9,11 +11,13 @@ import { ReviewDialog } from "./ReviewDialog";
 const ShellView = lazy(() => import("./ShellView").then((m) => ({ default: m.ShellView })));
 import { Badge, Button, Notice, inputClass } from "./ui";
 import {
+  GitOpsService,
   GuardService,
   ResourceService,
   errorMessage,
   type ContainerView,
   type EventView,
+  type OwnerView,
   type PlanView,
   type ResourceRef,
   type ResourceTypeView,
@@ -23,7 +27,7 @@ import { age } from "../lib/format";
 import { kubectlDelete, kubectlRestart, kubectlScale, kubectlYaml, type KubeTarget } from "../lib/kubectl";
 import { useNav } from "../state/nav";
 
-type Tab = "overview" | "metrics" | "yaml" | "events" | "logs" | "shell";
+type Tab = "overview" | "metrics" | "yaml" | "events" | "history" | "logs" | "shell";
 
 const FORWARDABLE = new Set(["Pod", "Service", "Deployment", "StatefulSet", "DaemonSet", "ReplicaSet"]);
 
@@ -47,6 +51,7 @@ export function DetailPanel({ contextName, type, row, onClose, className = "w-[4
   const isPod = type.group === "" && type.resource === "pods";
   const isWorkload = type.group === "apps" || type.group === "batch" ? HAS_PODS.has(type.resource) : false;
   const tabs: Tab[] = isPod ? ["overview", "metrics", "yaml", "events"] : ["overview", "yaml", "events"];
+  if (RECORDED_KINDS.includes(type.kind)) tabs.push("history");
   if (isPod || isWorkload) tabs.push("logs");
   if (isPod) tabs.push("shell");
   const [tab, setTab] = useState<Tab>("overview");
@@ -143,6 +148,7 @@ export function DetailPanel({ contextName, type, row, onClose, className = "w-[4
           <Notice tone={notice.tone}>{notice.text}</Notice>
         </div>
       )}
+      <ManagedBanner contextName={contextName} ref_={ref} />
 
       <div role="tablist" className="flex gap-1 border-b border-line px-3">
         {tabs.map((t) => (
@@ -167,6 +173,7 @@ export function DetailPanel({ contextName, type, row, onClose, className = "w-[4
         )}
         {tab === "yaml" && <YamlTab contextName={contextName} type={type} ref_={ref} />}
         {tab === "events" && <EventsTab contextName={contextName} row={row} />}
+        {tab === "history" && <ObjectHistory contextName={contextName} kind={type.kind} namespace={row.namespace} name={row.name} />}
         {tab === "logs" && (
           <LogsView
             contextName={contextName}
@@ -337,5 +344,37 @@ function EventsTab({ contextName, row }: { contextName: string; row: TableRow })
         </li>
       ))}
     </ul>
+  );
+}
+
+/** Says when Argo CD or Flux owns this object, since live edits get reverted. */
+function ManagedBanner({ contextName, ref_ }: { contextName: string; ref_: ResourceRef }) {
+  const { navigate } = useNav();
+  const [view, setView] = useState<OwnerView | null>(null);
+  useEffect(() => {
+    GitOpsService.OwnerOf(contextName, ref_)
+      .then(setView)
+      .catch(() => setView(null));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contextName, ref_.group, ref_.resource, ref_.namespace, ref_.name]);
+  const owner = view?.owner;
+  if (!owner) return null;
+  const app = view?.app;
+  const verb = owner.tool === "Flux" ? "reconcile" : "sync";
+  return (
+    <div className="px-4 pt-3">
+      <Notice tone="warn">
+        <div className="flex flex-wrap items-center gap-2">
+          <span>
+            Managed by {owner.tool} {owner.kind} <span className="font-medium">{owner.namespace ? `${owner.namespace}/` : ""}{owner.name}</span>
+            {app && ` · ${app.sync === "OutOfSync" ? "out of sync" : app.sync.toLowerCase()}`}
+            {app?.suspended && " · suspended"}. Changes made here are reverted at the next {verb}; change it in Git.
+          </span>
+          <Button className="ml-auto h-7" variant="ghost" onClick={() => navigate({ page: "gitops" })}>
+            Open GitOps
+          </Button>
+        </div>
+      </Notice>
+    </div>
   );
 }

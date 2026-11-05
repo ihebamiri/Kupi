@@ -3,6 +3,12 @@
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
+import * as gitops$0 from "../gitops/models.js";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
+import * as helmrel$0 from "../helmrel/models.js";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
 import * as metrics$0 from "../metrics/models.js";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
@@ -137,6 +143,21 @@ export interface EventView {
 }
 
 /**
+ * HistoryQuery filters recorded history. Empty fields match everything.
+ */
+export interface HistoryQuery {
+    "namespace": string;
+    "kind": string;
+    "name": string;
+
+    /**
+     * Hours back from now, 1 to 336 (14 days).
+     */
+    "hours": number;
+    "limit": number;
+}
+
+/**
  * ImageDetailView describes one image without exposing environment values,
  * which can hold secrets baked in at build time.
  */
@@ -202,6 +223,19 @@ export interface NodeMetrics {
 }
 
 /**
+ * OwnerView says which GitOps app manages an object, and that app's state.
+ */
+export interface OwnerView {
+    "owner": gitops$0.Owner | null;
+    "app": gitops$0.App | null;
+
+    /**
+     * Error is set when the owner is known but its app couldn't be read.
+     */
+    "error": string;
+}
+
+/**
  * ParseResult is a YAML document converted to JSON, or why it couldn't be.
  * Errors are expected while the user is typing, so they are data, not failures.
  */
@@ -262,6 +296,28 @@ export interface PullEvent {
     "status": string;
     "done": boolean;
     "error": string;
+}
+
+/**
+ * ReleaseDetail is one release with its history. Values are not included:
+ * they often hold passwords, so they come only from Values.
+ */
+export interface ReleaseDetail {
+    "release": helmrel$0.Release;
+    "history": helmrel$0.Release[] | null;
+    "notes": string;
+    "manifest": string;
+    "resources": helmrel$0.Resource[] | null;
+
+    /**
+     * Defaults are the chart's own default values (not secret).
+     */
+    "defaults": string;
+    "hasSchema": boolean;
+    "valuesNeedReason": boolean;
+    "chartDescription": string;
+    "chartHome": string;
+    "userValuesSupplied": boolean;
 }
 
 /**

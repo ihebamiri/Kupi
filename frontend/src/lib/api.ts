@@ -7,8 +7,12 @@ export {
   ClusterService,
   ForwardService,
   FormService,
+  GitOpsService,
   GuardService,
+  HelmService,
+  HistoryService,
   ImageService,
+  IncidentService,
   LocalClusterService,
   LogService,
   MetricsService,
@@ -24,7 +28,10 @@ export type {
   ImageView,
   LayerView,
   EnvCopy,
+  HistoryQuery,
   NodeMetrics,
+  OwnerView,
+  ReleaseDetail,
   PodMetrics,
   PortOption,
   PullEvent,
@@ -36,9 +43,14 @@ export type {
   TagView,
 } from "../../bindings/github.com/iheb-amiri/kupi/internal/bridge";
 export type { DiskUsage } from "../../bindings/github.com/iheb-amiri/kupi/internal/engine";
-export type { Cluster as LocalCluster, CreateOptions, Tool } from "../../bindings/github.com/iheb-amiri/kupi/internal/localk8s";
+export type { Cluster as LocalCluster, CreateOptions, Tool, Usage as LocalUsage, NodeUsage as LocalNodeUsage } from "../../bindings/github.com/iheb-amiri/kupi/internal/localk8s";
+export type { Status as LaptopStatus } from "../../bindings/github.com/iheb-amiri/kupi/internal/laptop";
 export type { NodeUsage, Overview, PodUsage, Sample, Status as MetricsStatus } from "../../bindings/github.com/iheb-amiri/kupi/internal/metrics";
 export type { Details as SecretDetails, Finding, Key as SecretKey, ScanResult, TLSInfo, Usage as SecretUsage } from "../../bindings/github.com/iheb-amiri/kupi/internal/secrets";
+export type { Change as HistoryChange, Event as HistoryEvent, Status as HistoryStatus } from "../../bindings/github.com/iheb-amiri/kupi/internal/history";
+export type { LogExcerpt, Problem, Report as IncidentReport } from "../../bindings/github.com/iheb-amiri/kupi/internal/incident";
+export type { App as GitOpsApp, Overview as GitOpsOverview, Owner as GitOpsOwner } from "../../bindings/github.com/iheb-amiri/kupi/internal/gitops";
+export type { Release as HelmRelease, Resource as HelmResource } from "../../bindings/github.com/iheb-amiri/kupi/internal/helmrel";
 export type { ItemInfo as VaultItem, Status as VaultStatus } from "../../bindings/github.com/iheb-amiri/kupi/internal/vault";
 export type { Changed as ForwardsChanged, Forward, Target as ForwardTarget } from "../../bindings/github.com/iheb-amiri/kupi/internal/forward";
 

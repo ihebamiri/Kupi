@@ -360,8 +360,15 @@ func stripServerFields(obj *unstructured.Unstructured) {
 	unstructured.RemoveNestedField(obj.Object, "status")
 }
 
+// mergePatch adds a resourceVersion precondition to a merge patch body,
+// keeping any metadata (such as annotations) the body already sets.
 func mergePatch(resourceVersion string, body map[string]interface{}) ([]byte, error) {
-	body["metadata"] = map[string]interface{}{"resourceVersion": resourceVersion}
+	meta, _ := body["metadata"].(map[string]interface{})
+	if meta == nil {
+		meta = map[string]interface{}{}
+	}
+	meta["resourceVersion"] = resourceVersion
+	body["metadata"] = meta
 	data, err := json.Marshal(body)
 	if err != nil {
 		return nil, fmt.Errorf("encode patch: %w", err)

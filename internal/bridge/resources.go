@@ -121,6 +121,9 @@ func (d Deps) session(contextName string) (*kube.Session, error) {
 	if !ok {
 		return nil, guard.ErrNotConnected
 	}
+	if d.Laptop != nil {
+		d.Laptop.Touch(contextName)
+	}
 	return s, nil
 }
 

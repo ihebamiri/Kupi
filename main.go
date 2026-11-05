@@ -18,6 +18,7 @@ import (
 	"github.com/iheb-amiri/kupi/internal/clipboard"
 	"github.com/iheb-amiri/kupi/internal/forward"
 	"github.com/iheb-amiri/kupi/internal/guard"
+	"github.com/iheb-amiri/kupi/internal/history"
 	"github.com/iheb-amiri/kupi/internal/kube"
 	"github.com/iheb-amiri/kupi/internal/kubeconfig"
 	"github.com/iheb-amiri/kupi/internal/live"
@@ -72,6 +73,10 @@ func main() {
 			application.NewService(bridge.NewLocalClusterService(deps)),
 			application.NewService(bridge.NewSecretService(deps)),
 			application.NewService(bridge.NewVaultService(deps)),
+			application.NewService(bridge.NewHistoryService(deps)),
+			application.NewService(bridge.NewIncidentService(deps)),
+			application.NewService(bridge.NewGitOpsService(deps)),
+			application.NewService(bridge.NewHelmService(deps)),
 		},
 		Assets: application.AssetOptions{
 			Handler:    application.AssetFileServerFS(assets),
@@ -84,6 +89,9 @@ func main() {
 			deps.Metrics.StopAll()
 			deps.Clipboard.Close()
 			deps.Vault.Close()
+			deps.History.StopAll()
+			deps.HistoryStore.Close()
+			deps.Laptop.Close()
 		},
 	})
 	emitter.Set(func(name string, data any) { app.Event.Emit(name, data) })
@@ -128,6 +136,7 @@ func buildDeps(emitter live.Emitter) (bridge.Deps, error) {
 	if os.Getenv(appdir.EnvOverride) != "" {
 		keys.Key = vault.KeyNameFor(dir)
 	}
+	historyStore := history.Open(filepath.Join(dir, "history"))
 	manager := kube.NewManager(kubeconfig.NewLoader(), trustStore, profiles)
 	sessions := guard.SessionsFunc(func(name string) (guard.Session, bool) {
 		s, ok := manager.Session(name)
@@ -136,20 +145,27 @@ func buildDeps(emitter live.Emitter) (bridge.Deps, error) {
 		}
 		return s, true
 	})
-	return bridge.Deps{
-		Kube:      manager,
-		Guard:     guard.New(sessions, auditLog),
-		Audit:     auditLog,
-		Trust:     trustStore,
-		Profiles:  profiles,
-		Live:      live.New(emitter),
-		Metrics:   metrics.New(),
-		Forwards:  forward.New(emitter),
-		Emit:      emitter,
-		Clipboard: &clipboard.Secure{},
-		Vault:     vault.New(dir, keys),
-		ConfigDir: dir,
-	}, nil
+	deps := bridge.Deps{
+		Kube:         manager,
+		Guard:        guard.New(sessions, auditLog),
+		Audit:        auditLog,
+		Trust:        trustStore,
+		Profiles:     profiles,
+		Live:         live.New(emitter),
+		Metrics:      metrics.New(),
+		Forwards:     forward.New(emitter),
+		Emit:         emitter,
+		Clipboard:    &clipboard.Secure{},
+		Vault:        vault.New(dir, keys),
+		History:      history.NewRecorder(historyStore),
+		HistoryStore: historyStore,
+		ConfigDir:    dir,
+	}
+	if deps.Laptop, err = bridge.NewLaptop(filepath.Join(dir, "laptop.json"), deps); err != nil {
+		return bridge.Deps{}, err
+	}
+	deps.Laptop.Run()
+	return deps, nil
 }
 
 // securityHeaders adds the content security policy to production builds.

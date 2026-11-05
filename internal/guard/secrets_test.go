@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"github.com/iheb-amiri/kupi/internal/profile"
 )
@@ -103,5 +104,42 @@ func TestRecordAccessNeedsReasonOnProduction(t *testing.T) {
 	}
 	if err := g.RecordAccess("other", "secret-revealed", "x", "r"); !errors.Is(err, ErrNotConnected) {
 		t.Errorf("unknown context: %v", err)
+	}
+}
+
+func TestGitOpsActions(t *testing.T) {
+	f := newFake(profile.Local)
+	apps := schema.GroupVersionResource{Group: "argoproj.io", Version: "v1alpha1", Resource: "applications"}
+	ks := schema.GroupVersionResource{Group: "kustomize.toolkit.fluxcd.io", Version: "v1", Resource: "kustomizations"}
+	f.put(apps, &unstructured.Unstructured{Object: map[string]interface{}{"apiVersion": "argoproj.io/v1alpha1", "kind": "Application", "metadata": map[string]interface{}{"name": "shop", "namespace": "argocd"}}})
+	f.put(ks, &unstructured.Unstructured{Object: map[string]interface{}{"apiVersion": "kustomize.toolkit.fluxcd.io/v1", "kind": "Kustomization", "metadata": map[string]interface{}{"name": "apps", "namespace": "flux-system"}}})
+	g, _ := newGuard(t, f)
+
+	cases := []struct {
+		req  GitOpsRequest
+		want string
+	}{
+		{GitOpsRequest{Context: "test", Kind: "Application", Namespace: "argocd", Name: "shop", Action: GitOpsSync}, `"operation":{"initiatedBy":{"username":"kupi"},"sync":{}}`},
+		{GitOpsRequest{Context: "test", Kind: "Application", Namespace: "argocd", Name: "shop", Action: GitOpsRefresh}, `"argocd.argoproj.io/refresh":"normal"`},
+		{GitOpsRequest{Context: "test", Kind: "Kustomization", Namespace: "flux-system", Name: "apps", Action: GitOpsSuspend}, `"suspend":true`},
+		{GitOpsRequest{Context: "test", Kind: "Kustomization", Namespace: "flux-system", Name: "apps", Action: GitOpsReconcile}, `"reconcile.fluxcd.io/requestedAt"`},
+	}
+	for i, c := range cases {
+		p, err := g.PrepareGitOps(context.Background(), c.req)
+		if err != nil {
+			t.Fatalf("%s: %v", c.req.Action, err)
+		}
+		if _, err := g.Commit(context.Background(), p.ID, Confirmation{}); err != nil {
+			t.Fatal(err)
+		}
+		if got := string(f.patched[i]); !strings.Contains(got, c.want) || !strings.Contains(got, `"resourceVersion":"41"`) {
+			t.Errorf("%s patch = %s", c.req.Action, got)
+		}
+	}
+	if _, err := g.PrepareGitOps(context.Background(), GitOpsRequest{Context: "test", Kind: "Application", Namespace: "argocd", Name: "shop", Action: GitOpsSuspend}); err == nil {
+		t.Error("suspend accepted for an Argo CD app")
+	}
+	if _, err := g.PrepareGitOps(context.Background(), GitOpsRequest{Context: "test", Kind: "Deployment", Namespace: "x", Name: "y", Action: GitOpsSync}); err == nil {
+		t.Error("sync accepted for a Deployment")
 	}
 }

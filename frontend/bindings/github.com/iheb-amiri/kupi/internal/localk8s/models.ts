@@ -28,9 +28,38 @@ export interface CreateOptions {
 }
 
 /**
+ * NodeUsage is one k3d node container's use of the machine.
+ */
+export interface NodeUsage {
+    "name": string;
+    "role": string;
+    "running": boolean;
+    "memUsage": number;
+    "cpuCores": number;
+
+    /**
+     * MemCap and CPUCap are the node's caps; 0 means none.
+     */
+    "memCap": number;
+    "cpuCap": number;
+}
+
+/**
  * Tool is a local-cluster CLI found on this machine.
  */
 export interface Tool {
     "name": string;
     "path": string;
+}
+
+/**
+ * Usage is how much of the machine a k3d cluster uses.
+ */
+export interface Usage {
+    "cluster": string;
+    "nodes": NodeUsage[] | null;
+    "memUsage": number;
+    "cpuCores": number;
+    "hostMem": number;
+    "hostCpus": number;
 }

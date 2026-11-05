@@ -484,7 +484,11 @@ func (s *LocalClusterService) Create(ctx context.Context, o localk8s.CreateOptio
 func (s *LocalClusterService) Start(ctx context.Context, name string) (string, error) {
 	ctx, cancel := context.WithTimeout(ctx, localk8s.ActionTimeout)
 	defer cancel()
-	return localk8s.StartK3d(ctx, name)
+	out, err := localk8s.StartK3d(ctx, name)
+	if err == nil {
+		s.d.Laptop.Woke(name)
+	}
+	return out, err
 }
 
 // Stop stops a k3d cluster, freeing its memory and CPU.

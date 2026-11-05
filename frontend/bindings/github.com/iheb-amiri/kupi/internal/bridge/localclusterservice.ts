@@ -12,6 +12,9 @@ import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wails
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
+import * as laptop$0 from "../laptop/models.js";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
 import * as localk8s$0 from "../localk8s/models.js";
 
 /**
@@ -30,10 +33,31 @@ export function Delete(name: string): $CancellablePromise<string> {
 }
 
 /**
+ * LaptopStatus returns a cluster's laptop-mode settings.
+ */
+export function LaptopStatus(name: string): $CancellablePromise<laptop$0.Status> {
+    return $Call.ByID(1947418943, name);
+}
+
+/**
  * List returns the k3d clusters on this machine.
  */
 export function List(): $CancellablePromise<localk8s$0.Cluster[] | null> {
     return $Call.ByID(1480985577);
+}
+
+/**
+ * SetIdleStop stops a cluster after minutes without Kupi using it; 0 turns it off.
+ */
+export function SetIdleStop(name: string, minutes: number): $CancellablePromise<void> {
+    return $Call.ByID(3262028753, name, minutes);
+}
+
+/**
+ * SetLimits caps each node of a k3d cluster: memory in MB and CPUs; 0 lifts a cap.
+ */
+export function SetLimits(name: string, memoryMB: number, cpus: number): $CancellablePromise<void> {
+    return $Call.ByID(643015215, name, memoryMB, cpus);
 }
 
 /**
@@ -55,4 +79,11 @@ export function Stop(name: string): $CancellablePromise<string> {
  */
 export function Tools(): $CancellablePromise<localk8s$0.Tool[] | null> {
     return $Call.ByID(440800068);
+}
+
+/**
+ * Usage measures how much memory and CPU a k3d cluster takes from this machine.
+ */
+export function Usage(name: string): $CancellablePromise<localk8s$0.Usage> {
+    return $Call.ByID(3450983136, name);
 }

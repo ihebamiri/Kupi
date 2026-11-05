@@ -1,0 +1,112 @@
+# Test fixtures for Kupi's GitOps page, for a cluster without Argo CD or
+# Flux: minimal CustomResourceDefinitions (no controllers) and sample apps
+# with a status filled in by hand. Apply with:
+#   kubectl --context k3d-kupi-test apply -f docs/testdata/gitops-fixtures.yaml
+# (run it twice the first time: the CRDs must exist before the apps)
+# Remove with:
+#   kubectl --context k3d-kupi-test delete -f docs/testdata/gitops-fixtures.yaml
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: applications.argoproj.io
+spec:
+  group: argoproj.io
+  names: {kind: Application, plural: applications, singular: application, shortNames: [app]}
+  scope: Namespaced
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
+      schema:
+        openAPIV3Schema: {type: object, x-kubernetes-preserve-unknown-fields: true}
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: kustomizations.kustomize.toolkit.fluxcd.io
+spec:
+  group: kustomize.toolkit.fluxcd.io
+  names: {kind: Kustomization, plural: kustomizations, singular: kustomization, shortNames: [ks]}
+  scope: Namespaced
+  versions:
+    - name: v1
+      served: true
+      storage: true
+      schema:
+        openAPIV3Schema: {type: object, x-kubernetes-preserve-unknown-fields: true}
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: gitrepositories.source.toolkit.fluxcd.io
+spec:
+  group: source.toolkit.fluxcd.io
+  names: {kind: GitRepository, plural: gitrepositories, singular: gitrepository}
+  scope: Namespaced
+  versions:
+    - name: v1
+      served: true
+      storage: true
+      schema:
+        openAPIV3Schema: {type: object, x-kubernetes-preserve-unknown-fields: true}
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kupi-gitops
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: shop
+  namespace: kupi-gitops
+spec:
+  project: default
+  source:
+    repoURL: git@github.com:example/shop-deploy.git
+    path: overlays/dev
+    targetRevision: main
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kupi-demo
+  syncPolicy:
+    automated: {selfHeal: true, prune: true}
+status:
+  sync: {status: OutOfSync, revision: 9f1c2ab}
+  health: {status: Healthy}
+  reconciledAt: "2026-11-05T09:00:00Z"
+  resources:
+    - {kind: Deployment, name: ticker, namespace: kupi-demo, status: OutOfSync}
+    - {kind: ConfigMap, name: demo-config, namespace: kupi-demo, status: Synced}
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: fleet
+  namespace: kupi-gitops
+spec:
+  url: https://github.com/example/fleet.git
+  ref: {branch: main}
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: platform
+  namespace: kupi-gitops
+spec:
+  interval: 10m
+  path: ./clusters/dev
+  prune: true
+  sourceRef: {kind: GitRepository, name: fleet}
+status:
+  lastAppliedRevision: main@sha1:4e5d6c7
+  lastAttemptedRevision: main@sha1:4e5d6c7
+  conditions:
+    - type: Ready
+      status: "True"
+      reason: ReconciliationSucceeded
+      message: "Applied revision: main@sha1:4e5d6c7"
+      lastTransitionTime: "2026-11-05T09:30:00Z"
+  inventory:
+    entries:
+      - {id: kupi-demo_demo-config__ConfigMap, v: v1}

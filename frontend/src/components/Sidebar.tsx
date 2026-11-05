@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Cable, ChevronDown, ChevronRight, FileCode, Gauge, KeyRound, Laptop, Layers, Search, ScrollText, Server, Vault, Workflow } from "lucide-react";
+import { Cable, ChevronDown, ChevronRight, FileCode, Gauge, GitBranch, History, KeyRound, Laptop, Layers, Package, Search, ScrollText, Server, Siren, Vault, Workflow } from "lucide-react";
 import type { ReactNode } from "react";
 import { useClusters } from "../state/clusters";
 import { useForwards } from "../state/forwards";
@@ -91,6 +91,26 @@ export function Sidebar({ version }: { version: string }) {
         {active && (
           <NavButton label="Map" active={is({ page: "canvas" })} onClick={() => navigate({ page: "canvas" })} icon={<Workflow className="size-4" aria-hidden />}>
             Map
+          </NavButton>
+        )}
+        {active && (
+          <NavButton label="Incident" active={is({ page: "incident" })} onClick={() => navigate({ page: "incident" })} icon={<Siren className="size-4" aria-hidden />}>
+            Incident
+          </NavButton>
+        )}
+        {active && (
+          <NavButton label="History" active={is({ page: "history" })} onClick={() => navigate({ page: "history" })} icon={<History className="size-4" aria-hidden />}>
+            History
+          </NavButton>
+        )}
+        {active && (
+          <NavButton label="Helm" active={is({ page: "helm" })} onClick={() => navigate({ page: "helm" })} icon={<Package className="size-4" aria-hidden />}>
+            Helm
+          </NavButton>
+        )}
+        {active && (
+          <NavButton label="GitOps" active={is({ page: "gitops" })} onClick={() => navigate({ page: "gitops" })} icon={<GitBranch className="size-4" aria-hidden />}>
+            GitOps
           </NavButton>
         )}
         {active && (

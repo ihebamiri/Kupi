@@ -24,9 +24,12 @@ import (
 	"github.com/iheb-amiri/kupi/internal/clipboard"
 	"github.com/iheb-amiri/kupi/internal/forward"
 	"github.com/iheb-amiri/kupi/internal/guard"
+	"github.com/iheb-amiri/kupi/internal/history"
 	"github.com/iheb-amiri/kupi/internal/kube"
 	"github.com/iheb-amiri/kupi/internal/kubeconfig"
+	"github.com/iheb-amiri/kupi/internal/laptop"
 	"github.com/iheb-amiri/kupi/internal/live"
+	"github.com/iheb-amiri/kupi/internal/localk8s"
 	"github.com/iheb-amiri/kupi/internal/metrics"
 	"github.com/iheb-amiri/kupi/internal/profile"
 	"github.com/iheb-amiri/kupi/internal/trust"
@@ -52,11 +55,17 @@ type Deps struct {
 	Emit      live.Emitter
 	Clipboard *clipboard.Secure
 	Vault     *vault.Vault
+	// History records changes and warnings while a context is connected.
+	History      *history.Recorder
+	HistoryStore *history.Store
+	// Laptop stops idle local clusters and wakes them on connect.
+	Laptop    *laptop.Manager
 	ConfigDir string
 }
 
 // stopContext ends every stream, sampler and forward of a context.
 func (d Deps) stopContext(contextName string) {
+	d.History.Stop(contextName)
 	d.Live.StopContext(contextName)
 	d.Metrics.Stop(contextName)
 	d.Forwards.StopContext(contextName)
@@ -168,6 +177,16 @@ func (s *ClusterService) Connect(ctx context.Context, contextName string) (Conne
 	if err := validate.ContextName(contextName); err != nil {
 		return Connection{}, err
 	}
+	if name, ok := s.d.Laptop.ShouldWake(contextName); ok {
+		// Laptop mode stopped this cluster while idle; start it again.
+		wctx, wcancel := context.WithTimeout(ctx, localk8s.ActionTimeout)
+		_, err := localk8s.StartK3d(wctx, name)
+		wcancel()
+		if err != nil {
+			return Connection{}, fmt.Errorf("start the idle-stopped cluster %s: %w", name, err)
+		}
+		s.d.Laptop.Woke(name)
+	}
 	ctx, cancel := context.WithTimeout(ctx, connectTimeout)
 	defer cancel()
 	sess, err := s.d.Kube.Connect(ctx, contextName)
@@ -178,6 +197,7 @@ func (s *ClusterService) Connect(ctx context.Context, contextName string) (Conne
 		}
 		return Connection{}, err
 	}
+	s.d.History.Start(contextName, sess.Reader(), sess.DefaultNamespace())
 	return Connection{
 		Context:          contextName,
 		Profile:          string(sess.Profile()),

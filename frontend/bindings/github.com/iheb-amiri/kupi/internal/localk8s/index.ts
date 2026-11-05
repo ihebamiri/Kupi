@@ -4,5 +4,7 @@
 export type {
     Cluster,
     CreateOptions,
-    Tool
+    NodeUsage,
+    Tool,
+    Usage
 } from "./models.js";

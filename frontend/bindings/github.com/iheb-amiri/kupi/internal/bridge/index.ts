@@ -7,8 +7,12 @@ import * as CanvasService from "./canvasservice.js";
 import * as ClusterService from "./clusterservice.js";
 import * as FormService from "./formservice.js";
 import * as ForwardService from "./forwardservice.js";
+import * as GitOpsService from "./gitopsservice.js";
 import * as GuardService from "./guardservice.js";
+import * as HelmService from "./helmservice.js";
+import * as HistoryService from "./historyservice.js";
 import * as ImageService from "./imageservice.js";
+import * as IncidentService from "./incidentservice.js";
 import * as LocalClusterService from "./localclusterservice.js";
 import * as LogService from "./logservice.js";
 import * as MetricsService from "./metricsservice.js";
@@ -23,8 +27,12 @@ export {
     ClusterService,
     FormService,
     ForwardService,
+    GitOpsService,
     GuardService,
+    HelmService,
+    HistoryService,
     ImageService,
+    IncidentService,
     LocalClusterService,
     LogService,
     MetricsService,
@@ -45,16 +53,19 @@ export type {
     EngineInfo,
     EnvCopy,
     EventView,
+    HistoryQuery,
     ImageDetailView,
     ImageView,
     LayerView,
     LogRequest,
     NodeMetrics,
+    OwnerView,
     ParseResult,
     PlanView,
     PodMetrics,
     PortOption,
     PullEvent,
+    ReleaseDetail,
     ResourceRef,
     ResourceTypeView,
     Resources,

@@ -11,7 +11,7 @@ Scope of the current build: v0.1 + the v0.2 Observe canvas and v0.2 features, pe
 - [x] 5. Observe canvas.
 - [x] 6. Images and k3d local clusters.
 - [x] 7. Secrets and local vault.
-- [ ] 8. Helm, Argo CD / Flux awareness, resource history, incident view, laptop mode.
+- [x] 8. Helm, Argo CD / Flux awareness, resource history, incident view, laptop mode.
 - [ ] 9. Final checks before maintainer testing.
 
 ## Milestone 1 status
@@ -134,6 +134,31 @@ Known limits:
 - Go can't reliably wipe strings, so decrypted vault values stay in process memory until garbage-collected after locking.
 - SOPS, Sealed Secrets and External Secrets are detected and explained, not created or decrypted.
 - Kupi's own image pulls (Images page) still don't use registry logins.
+
+## Milestone 8 status
+
+Done and verified (unit tests, k3d integration tests, clicked through in server mode):
+
+- Resource history (`internal/history`): while a cluster is connected, Kupi watches Deployments, StatefulSets, DaemonSets, CronJobs, Services, Ingresses, NetworkPolicies, ConfigMaps, Secrets (metadata only), HPAs and PVCs, and records each real change (status and server fields ignored) with the tool that made it, from `managedFields`, and a diff. Secret value changes are noted without values. Warning events are saved too. Records are append-only JSON lines per cluster per day in the config dir, kept 14 days. History page, plus a History tab on each recorded object. Verified: a `kubectl patch` shows as "changed by kubectl patch" with its diff.
+- Incident view (`internal/incident`): failing pods (crash loops, image pulls, unschedulable, OOM kills, not ready), workloads short of copies or with stuck rollouts, failed Jobs, unbound or lost claims, unhealthy nodes, and Services with no ready pods; error lines from the logs of up to 6 failing containers; recorded changes and warnings in the window, merged into one timeline. Verified on the demo crash-looping pod.
+- Argo CD and Flux (`internal/gitops`): GitOps page with sync and health, source repository (opens in the browser, https only), revisions, destination and resource counts; Refresh and Sync (Argo CD), Reconcile, Suspend and Resume (Flux), each through the Guard review. Objects owned by an app show a "Managed by" banner with the app's state. Test fixtures: `docs/testdata/gitops-fixtures.yaml` (CRDs and sample apps, no controllers).
+- Helm (`helm.sh/helm/v4` SDK, no CLI): release list, history, manifest and resources (Secret values hidden), notes, chart defaults. Values are hidden until asked for, and showing them is audited (with a reason on production). Upgrade with edited values and the same chart: previewed as a server-side dry run (chart schema checked) with a diff of the rendered objects. Roll back to any earlier revision, with a diff. Uninstall, with typed confirmation on production. Every action re-checks the release revision before running, so a stale preview can't run. The SDK lives in `internal/kube`; only the Guard may call `HelmMutator()`, enforced by the architecture tests. Helm's field manager is `helm`, matching the Helm CLI.
+- Laptop mode (`internal/laptop`, `localk8s`): per-node memory and CPU use of a k3d cluster against the machine (Docker Engine API), memory and CPU caps on its node containers (kept across restarts), and an optional idle stop. Port-forwards count as use, and connecting starts a cluster that Kupi stopped. Verified: kupi-test measured at 866 MB and 0.11 CPUs; caps applied and lifted.
+- Bug found and fixed: a merge patch that set annotations lost them, because the resourceVersion precondition replaced `metadata`.
+- Bug found and fixed: Helm v4 names its field manager after the running program, so upgrades from Kupi conflicted with releases installed by other programs.
+
+Not yet:
+
+- Helm: installing new charts from repositories or Artifact Hub, and upgrading to another chart version. Upgrades keep the release's own chart.
+- Helm: field-ownership conflicts (for example after a `kubectl edit` of a release's object) fail the upgrade rather than showing in the preview. Kupi never forces them; Helm records the failed revision.
+- GitOps: Kupi links to the repository but doesn't open pull requests. Argo CD ApplicationSets aren't listed.
+- History covers only the time Kupi is connected, and the listed types.
+- Laptop mode is k3d only. With Docker Desktop, "the machine" means Docker's VM. Idle stop counts only Kupi's own use and port-forwards.
+
+Deviations from the design doc:
+
+- History and saved events use append-only JSON lines files instead of SQLite, like the audit log; no SQLite dependency was added.
+- The Helm SDK grows the binary: the server-mode test build went from 77 MB to 93 MB.
 
 ## Environment
 

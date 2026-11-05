@@ -65,6 +65,26 @@ export function CommandPalette() {
               Secrets (and exposure scan)
             </Command.Item>
           )}
+          {active && (
+            <Command.Item className={item} onSelect={() => run(() => navigate({ page: "incident" }))}>
+              Incident (what is broken and what changed)
+            </Command.Item>
+          )}
+          {active && (
+            <Command.Item className={item} onSelect={() => run(() => navigate({ page: "history" }))}>
+              History (recorded changes and warnings)
+            </Command.Item>
+          )}
+          {active && (
+            <Command.Item className={item} onSelect={() => run(() => navigate({ page: "gitops" }))}>
+              GitOps (Argo CD and Flux)
+            </Command.Item>
+          )}
+          {active && (
+            <Command.Item className={item} onSelect={() => run(() => navigate({ page: "helm" }))}>
+              Helm releases
+            </Command.Item>
+          )}
         </Command.Group>
         {active && types.length > 0 && (
           <Command.Group heading="Resources" className={heading}>

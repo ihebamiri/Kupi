@@ -20,6 +20,10 @@ var clientImports = []string{
 	"k8s.io/client-go/rest",
 	"k8s.io/client-go/tools/remotecommand",
 	"k8s.io/client-go/tools/portforward",
+	// Helm packages that talk to the cluster; its data types (chart, release) are fine.
+	"helm.sh/helm/v4/pkg/action",
+	"helm.sh/helm/v4/pkg/kube",
+	"helm.sh/helm/v4/pkg/storage",
 }
 
 // allowedClientImports are harmless packages under a forbidden prefix.
@@ -69,8 +73,8 @@ func CheckGo(rel string, src []byte) []string {
 			return true
 		}
 		pos := fset.Position(call.Pos())
-		if sel.Sel.Name == "Mutator" && len(call.Args) == 0 && !inKube && !inGuard {
-			problems = append(problems, fmt.Sprintf("%s:%d: calls Mutator(); only internal/guard may change a cluster", rel, pos.Line))
+		if (sel.Sel.Name == "Mutator" || sel.Sel.Name == "HelmMutator") && len(call.Args) == 0 && !inKube && !inGuard {
+			problems = append(problems, fmt.Sprintf("%s:%d: calls %s(); only internal/guard may change a cluster", rel, pos.Line, sel.Sel.Name))
 		}
 		if pkg, ok := sel.X.(*ast.Ident); ok && execNames[pkg.Name] {
 			argIndex := -1

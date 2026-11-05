@@ -13,7 +13,11 @@ export type Route =
   | { page: "forwards" }
   | { page: "secrets"; namespace?: string; name?: string }
   | { page: "vault" }
-  | { page: "resources"; group: string; resource: string };
+  | { page: "history" }
+  | { page: "gitops" }
+  | { page: "helm" }
+  | { page: "incident" }
+  | { page: "resources"; group: string; resource: string; select?: { namespace: string; name: string } };
 
 interface NavState {
   route: Route;
@@ -50,7 +54,7 @@ export function NavProvider({ children }: { children: ReactNode }) {
 
   // Leave resource pages when the cluster goes away.
   useEffect(() => {
-    if (!activeName && (route.page === "resources" || route.page === "overview" || route.page === "canvas" || route.page === "secrets")) setRoute({ page: "clusters" });
+    if (!activeName && (route.page === "resources" || route.page === "overview" || route.page === "canvas" || route.page === "secrets" || route.page === "history" || route.page === "incident" || route.page === "gitops" || route.page === "helm")) setRoute({ page: "clusters" });
   }, [activeName, route.page]);
 
   const findType = useCallback(
