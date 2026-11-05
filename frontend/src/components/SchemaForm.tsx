@@ -31,7 +31,7 @@ export function SchemaForm({ schema, value, onChange, essentials }: SchemaFormPr
           if (!node) return null;
           return (
             <FieldRow key={pathLabel(e.path)} label={e.label} hint={e.hint ?? firstSentence(node.description)} path={e.path} full={node.description}>
-              <Control node={node} path={e.path} value={value} onChange={onChange} />
+              <Control node={node} path={e.path} value={value} onChange={onChange} label={e.label} />
             </FieldRow>
           );
         })}
@@ -130,13 +130,15 @@ function Group({ name, node, path, value, onChange, query, required }: { name: s
   );
 }
 
-function Control({ node, path, value, onChange, query = "" }: { node: SchemaNode; path: Path; value: unknown; onChange: OnChange; query?: string }) {
+function Control({ node, path, value, onChange, query = "", label }: { node: SchemaNode; path: Path; value: unknown; onChange: OnChange; query?: string; label?: string }) {
   const current = getIn(value, path);
+  // Every input is named for screen readers: the friendly label, or the field path.
+  const name = label ?? pathLabel(path);
   switch (node.type) {
     case "string":
       if (node.enum && node.enum.length > 0) {
         return (
-          <select className={inputClass} value={typeof current === "string" ? current : ""} onChange={(e) => onChange(path, e.target.value || undefined)}>
+          <select aria-label={name} className={inputClass} value={typeof current === "string" ? current : ""} onChange={(e) => onChange(path, e.target.value || undefined)}>
             <option value="">(not set)</option>
             {node.enum.map((v) => (
               <option key={v} value={v}>
@@ -146,15 +148,16 @@ function Control({ node, path, value, onChange, query = "" }: { node: SchemaNode
           </select>
         );
       }
-      return <TextInput value={current} onChange={(v) => onChange(path, v)} />;
+      return <TextInput label={name} value={current} onChange={(v) => onChange(path, v)} />;
     case "quantity":
-      return <TextInput value={current} placeholder="e.g. 250m, 512Mi, 1Gi" onChange={(v) => onChange(path, v)} />;
+      return <TextInput label={name} value={current} placeholder="e.g. 250m, 512Mi, 1Gi" onChange={(v) => onChange(path, v)} />;
     case "intOrString":
-      return <TextInput value={current} placeholder="number or name" onChange={(v) => onChange(path, v === undefined ? undefined : /^\d+$/.test(v) ? Number(v) : v)} />;
+      return <TextInput label={name} value={current} placeholder="number or name" onChange={(v) => onChange(path, v === undefined ? undefined : /^\d+$/.test(v) ? Number(v) : v)} />;
     case "integer":
     case "number":
       return (
         <input
+          aria-label={name}
           className={inputClass}
           inputMode="numeric"
           value={current === undefined || current === null ? "" : String(current)}
@@ -168,7 +171,7 @@ function Control({ node, path, value, onChange, query = "" }: { node: SchemaNode
       );
     case "boolean":
       return (
-        <select className={inputClass} value={current === true ? "true" : current === false ? "false" : ""} onChange={(e) => onChange(path, e.target.value === "" ? undefined : e.target.value === "true")}>
+        <select aria-label={name} className={inputClass} value={current === true ? "true" : current === false ? "false" : ""} onChange={(e) => onChange(path, e.target.value === "" ? undefined : e.target.value === "true")}>
           <option value="">(not set)</option>
           <option value="true">true</option>
           <option value="false">false</option>
@@ -186,9 +189,10 @@ function Control({ node, path, value, onChange, query = "" }: { node: SchemaNode
   }
 }
 
-function TextInput({ value, onChange, placeholder }: { value: unknown; onChange: (v: string | undefined) => void; placeholder?: string }) {
+function TextInput({ value, onChange, placeholder, label }: { value: unknown; onChange: (v: string | undefined) => void; placeholder?: string; label: string }) {
   return (
     <input
+      aria-label={label}
       className={inputClass}
       value={value === undefined || value === null ? "" : String(value)}
       placeholder={placeholder ?? "(not set)"}

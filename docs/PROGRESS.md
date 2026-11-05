@@ -6,7 +6,7 @@ Scope of the current build: v0.1 + the v0.2 Observe canvas and v0.2 features, pe
 
 - [x] 1. Foundation: kubeconfig loading, trust prompt, profiles, sessions, Guard, audit log, security headers, architecture tests. Reviewed and committed.
 - [x] 2. Core views: resource browser (all types via discovery), logs, shell, events.
-- [x] 3. Forms with YAML sync (hand-designed forms for the main types, generated forms for the rest). Mostly done; see follow-ups below.
+- [x] 3. Forms with YAML sync (hand-designed forms for the main types, generated forms for the rest).
 - [ ] 4. Live metrics and port-forward manager.
 - [ ] 5. Observe canvas.
 - [ ] 6. Images and k3d local clusters.
@@ -67,11 +67,8 @@ Done and verified:
 - Editor and terminal are code-split: main bundle 278 KB (88 KB gzipped).
 - Deviation from the design doc: a custom schema form renderer instead of JSON Forms and react-hook-form, because Kubernetes schemas (int-or-string, quantities, recursion) fit poorly; no extra dependencies.
 
-Follow-ups (not done when the session hit its usage limit):
-
-- Verify "Edit with form or YAML" on an existing object in the UI (code path written; YAML-to-form conversion is covered by the create flow).
-- Give form inputs accessible labels (they currently expose only the "(not set)" placeholder).
-- Integration test for `FormService.Object` and `MatchingPods`.
+- "Edit with form or YAML" on a live object verified in the UI; every form input has an accessible name.
+- Integration test `internal/bridge/integration_test.go`: clean editable YAML, stable YAML round trip, Secrets refused, selector matching, schemas.
 
 ## Environment
 

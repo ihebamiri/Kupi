@@ -58,7 +58,7 @@ export function ContextBar() {
       </Badge>
       <span className="text-[12px] text-muted">{active.serverVersion}</span>
       <select
-        aria-label="Namespace"
+        aria-label="Namespace in view"
         className="max-w-56 truncate rounded-md border border-line bg-panel-2 px-2 py-1 text-[13px] text-fg"
         value={namespace}
         onChange={(e) => setNamespace(e.target.value)}
