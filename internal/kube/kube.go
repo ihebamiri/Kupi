@@ -82,6 +82,8 @@ type Reader interface {
 	// WatchMetadata watches object metadata only. It never transfers object
 	// contents, so Secret values stay on the server.
 	WatchMetadata(ctx context.Context, gvr schema.GroupVersionResource, namespace string, opts metav1.ListOptions) (watch.Interface, error)
+	// OpenAPI returns the server's OpenAPI v3 document for one group/version.
+	OpenAPI(ctx context.Context, gv schema.GroupVersion) ([]byte, error)
 }
 
 // ApplyOptions controls a server-side apply.
@@ -124,6 +126,14 @@ type Session struct {
 	cs     kubernetes.Interface
 	meta   metadata.Interface
 	mapper meta.ResettableRESTMapper
+
+	openapiMu    sync.Mutex
+	openapiCache map[string]cachedDoc
+}
+
+type cachedDoc struct {
+	data    []byte
+	fetched time.Time
 }
 
 // NewSession wires a session from already-built clients. Manager.Connect is

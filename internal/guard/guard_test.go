@@ -110,6 +110,8 @@ func (f *fakeCluster) WatchMetadata(context.Context, schema.GroupVersionResource
 	return watch.NewEmptyWatch(), nil
 }
 
+func (f *fakeCluster) OpenAPI(context.Context, schema.GroupVersion) ([]byte, error) { return nil, nil }
+
 func (f *fakeCluster) Exec(_ context.Context, ns, pod, container string, command []string, _ kube.ExecStreams) error {
 	f.execs = append(f.execs, ns+"/"+pod+"/"+container+":"+strings.Join(command, " "))
 	return nil

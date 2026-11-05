@@ -4,6 +4,7 @@ export {
   AppService,
   AuditService,
   ClusterService,
+  FormService,
   GuardService,
   LogService,
   ResourceService,

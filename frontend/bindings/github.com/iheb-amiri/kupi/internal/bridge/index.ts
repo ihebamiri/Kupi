@@ -4,6 +4,7 @@
 import * as AppService from "./appservice.js";
 import * as AuditService from "./auditservice.js";
 import * as ClusterService from "./clusterservice.js";
+import * as FormService from "./formservice.js";
 import * as GuardService from "./guardservice.js";
 import * as LogService from "./logservice.js";
 import * as ResourceService from "./resourceservice.js";
@@ -12,6 +13,7 @@ export {
     AppService,
     AuditService,
     ClusterService,
+    FormService,
     GuardService,
     LogService,
     ResourceService,
@@ -28,6 +30,7 @@ export type {
     ContextInfo,
     EventView,
     LogRequest,
+    ParseResult,
     PlanView,
     ResourceRef,
     ResourceTypeView,

@@ -57,6 +57,7 @@ func main() {
 			application.NewService(bridge.NewResourceService(deps)),
 			application.NewService(bridge.NewLogService(deps)),
 			application.NewService(bridge.NewShellService(deps)),
+			application.NewService(bridge.NewFormService(deps)),
 		},
 		Assets: application.AssetOptions{
 			Handler:    application.AssetFileServerFS(assets),

@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
+import { Suspense, lazy, useEffect, useState } from "react";
 import { CommandPalette } from "./components/CommandPalette";
 import { ContextBar } from "./components/ContextBar";
 import { Sidebar } from "./components/Sidebar";
 import { AppService } from "./lib/api";
-import { ApplyPage } from "./pages/ApplyPage";
+// The editor pulls in CodeMirror; load it only when opened.
+const EditorPage = lazy(() => import("./pages/EditorPage").then((m) => ({ default: m.EditorPage })));
 import { AuditPage } from "./pages/AuditPage";
 import { ClustersPage } from "./pages/ClustersPage";
 import { ResourcesPage } from "./pages/ResourcesPage";
@@ -14,9 +15,18 @@ function Main() {
   const { route, navigate } = useNav();
   const openPods = () => navigate({ page: "resources", group: "", resource: "pods" });
   return (
-    <main className={`min-h-0 flex-1 px-6 py-5 ${route.page === "resources" ? "overflow-hidden" : "overflow-y-auto"}`}>
+    <main className={`min-h-0 flex-1 px-6 py-5 ${route.page === "resources" || route.page === "apply" ? "overflow-hidden" : "overflow-y-auto"}`}>
       {route.page === "clusters" && <ClustersPage onOpened={openPods} />}
-      {route.page === "apply" && <ApplyPage key={route.manifest ?? ""} initialManifest={route.manifest} onConnect={() => navigate({ page: "clusters" })} />}
+      {route.page === "apply" && (
+        <Suspense fallback={<p className="text-[13px] text-muted">Loading the editor…</p>}>
+          <EditorPage
+            key={route.edit ? `${route.edit.group}/${route.edit.resource}/${route.edit.namespace}/${route.edit.name}` : (route.manifest ?? "new")}
+            initialManifest={route.manifest}
+            edit={route.edit}
+            onConnect={() => navigate({ page: "clusters" })}
+          />
+        </Suspense>
+      )}
       {route.page === "audit" && <AuditPage />}
       {/* Keyed by type so selection and sort never carry over to another type. */}
       {route.page === "resources" && <ResourcesPage key={`${route.group}/${route.resource}`} group={route.group} resource={route.resource} />}

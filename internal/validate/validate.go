@@ -27,7 +27,19 @@ const (
 var (
 	versionRe  = regexp.MustCompile(`^v[0-9]+((alpha|beta)[0-9]+)?$`)
 	resourceRe = regexp.MustCompile(`^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$`)
+	kindRe     = regexp.MustCompile(`^[A-Z][A-Za-z0-9]{0,62}$`)
 )
+
+// GroupVersionKind checks the parts of a type reference by kind.
+func GroupVersionKind(group, version, kind string) error {
+	if err := GroupVersionResource(group, version, "x"); err != nil {
+		return err
+	}
+	if !kindRe.MatchString(kind) {
+		return fmt.Errorf("invalid kind %q", kind)
+	}
+	return nil
+}
 
 // ContextName checks a kubeconfig context name. Existence is checked by the
 // caller against the loaded kubeconfig.

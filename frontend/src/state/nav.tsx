@@ -1,10 +1,10 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { ResourceService, errorMessage, type ResourceTypeView } from "../lib/api";
+import { ResourceService, errorMessage, type ResourceRef, type ResourceTypeView } from "../lib/api";
 import { useClusters } from "./clusters";
 
 export type Route =
   | { page: "clusters" }
-  | { page: "apply"; manifest?: string }
+  | { page: "apply"; manifest?: string; edit?: ResourceRef }
   | { page: "audit" }
   | { page: "resources"; group: string; resource: string };
 

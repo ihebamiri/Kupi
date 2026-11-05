@@ -258,8 +258,8 @@ function YamlTab({ contextName, type, ref_ }: { contextName: string; type: Resou
         ) : (
           <>
             <span>Read-only view.</span>
-            <Button className="ml-auto" onClick={() => navigate({ page: "apply", manifest: yaml })}>
-              Edit in Apply YAML
+            <Button className="ml-auto" onClick={() => navigate({ page: "apply", edit: ref_ })}>
+              Edit with form or YAML
             </Button>
           </>
         )}

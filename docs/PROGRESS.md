@@ -6,7 +6,7 @@ Scope of the current build: v0.1 + the v0.2 Observe canvas and v0.2 features, pe
 
 - [x] 1. Foundation: kubeconfig loading, trust prompt, profiles, sessions, Guard, audit log, security headers, architecture tests. Reviewed and committed.
 - [x] 2. Core views: resource browser (all types via discovery), logs, shell, events.
-- [ ] 3. Forms with YAML sync (hand-designed forms for the main types, generated forms for the rest).
+- [x] 3. Forms with YAML sync (hand-designed forms for the main types, generated forms for the rest). Mostly done; see follow-ups below.
 - [ ] 4. Live metrics and port-forward manager.
 - [ ] 5. Observe canvas.
 - [ ] 6. Images and k3d local clusters.
@@ -54,6 +54,24 @@ Known limits:
 - Editing Secrets waits for milestone 7; their YAML view is read-only.
 
 Test fixtures: `docs/testdata/demo-workloads.yaml` (namespace `kupi-demo`: a 2-copy log ticker, a crash-looping pod, a ConfigMap and a Secret).
+
+## Milestone 3 status
+
+Done and verified:
+
+- Forms generated from each cluster's OpenAPI v3 schema (`internal/schema`), so custom resources get forms too. Deployment form tree is 327 KB; schemas are cached for 10 minutes.
+- Curated "common fields first" layouts and starter templates for Deployment, Service, ConfigMap, Namespace, Job, CronJob, PVC (Ingress and HTTPRoute layouts without templates). Workload templates start secure: non-root, read-only root filesystem, no privilege escalation, capabilities dropped, seccomp, resource limits. Verified a template Deployment runs Ready on k3d.
+- Form and CodeMirror YAML editor stay in sync (YAML conversion done in Go, no extra npm parser). "All fields" with field search; descriptions from the schema.
+- Checks: Deployment selector vs pod labels; Service selector shows how many pods it matches.
+- Every save goes through the Guard review (server-side apply, field manager `kupi`).
+- Editor and terminal are code-split: main bundle 278 KB (88 KB gzipped).
+- Deviation from the design doc: a custom schema form renderer instead of JSON Forms and react-hook-form, because Kubernetes schemas (int-or-string, quantities, recursion) fit poorly; no extra dependencies.
+
+Follow-ups (not done when the session hit its usage limit):
+
+- Verify "Edit with form or YAML" on an existing object in the UI (code path written; YAML-to-form conversion is covered by the create flow).
+- Give form inputs accessible labels (they currently expose only the "(not set)" placeholder).
+- Integration test for `FormService.Object` and `MatchingPods`.
 
 ## Environment
 

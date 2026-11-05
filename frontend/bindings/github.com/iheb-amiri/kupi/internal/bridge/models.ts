@@ -126,6 +126,15 @@ export interface LogRequest {
 }
 
 /**
+ * ParseResult is a YAML document converted to JSON, or why it couldn't be.
+ * Errors are expected while the user is typing, so they are data, not failures.
+ */
+export interface ParseResult {
+    "json": string;
+    "error": string;
+}
+
+/**
  * PlanView is a change preview for the review dialog.
  */
 export interface PlanView {

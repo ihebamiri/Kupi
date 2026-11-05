@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"strconv"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -15,6 +16,7 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/openapi"
 	"k8s.io/client-go/tools/remotecommand"
 )
 
@@ -216,6 +218,43 @@ func (r *reader) WatchMetadata(ctx context.Context, gvr schema.GroupVersionResou
 		return r.s.meta.Resource(gvr).Watch(ctx, opts)
 	}
 	return r.s.meta.Resource(gvr).Namespace(namespace).Watch(ctx, opts)
+}
+
+// openAPITTL keeps schemas briefly; CRDs installed meanwhile show up after it.
+const openAPITTL = 10 * time.Minute
+
+func (r *reader) OpenAPI(ctx context.Context, gv schema.GroupVersion) ([]byte, error) {
+	key := "apis/" + gv.Group + "/" + gv.Version
+	if gv.Group == "" {
+		key = "api/" + gv.Version
+	}
+	s := r.s
+	s.openapiMu.Lock()
+	if c, ok := s.openapiCache[key]; ok && time.Since(c.fetched) < openAPITTL {
+		s.openapiMu.Unlock()
+		return c.data, nil
+	}
+	s.openapiMu.Unlock()
+
+	paths, err := openapi.NewClientWithContext(s.cs.Discovery().RESTClient()).PathsWithContext(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list OpenAPI documents: %w", err)
+	}
+	doc, ok := paths[key]
+	if !ok {
+		return nil, fmt.Errorf("the API server has no schema for %s", gv.String())
+	}
+	data, err := doc.SchemaWithContext(ctx, "application/json")
+	if err != nil {
+		return nil, fmt.Errorf("fetch schema for %s: %w", gv.String(), err)
+	}
+	s.openapiMu.Lock()
+	if s.openapiCache == nil {
+		s.openapiCache = map[string]cachedDoc{}
+	}
+	s.openapiCache[key] = cachedDoc{data: data, fetched: time.Now()}
+	s.openapiMu.Unlock()
+	return data, nil
 }
 
 func (m *mutator) Exec(ctx context.Context, namespace, pod, container string, command []string, st ExecStreams) error {

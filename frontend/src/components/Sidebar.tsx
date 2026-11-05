@@ -81,8 +81,8 @@ export function Sidebar({ version }: { version: string }) {
         <NavButton label="Clusters" active={is({ page: "clusters" })} onClick={() => navigate({ page: "clusters" })} icon={<Server className="size-4" aria-hidden />}>
           Clusters
         </NavButton>
-        <NavButton label="Apply YAML" active={route.page === "apply"} onClick={() => navigate({ page: "apply" })} icon={<FileCode className="size-4" aria-hidden />}>
-          Apply YAML
+        <NavButton label="Create or edit" active={route.page === "apply"} onClick={() => navigate({ page: "apply" })} icon={<FileCode className="size-4" aria-hidden />}>
+          Create or edit
         </NavButton>
         <NavButton label="Audit log" active={is({ page: "audit" })} onClick={() => navigate({ page: "audit" })} icon={<ScrollText className="size-4" aria-hidden />}>
           Audit log

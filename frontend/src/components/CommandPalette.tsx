@@ -44,7 +44,7 @@ export function CommandPalette() {
         <Command.Empty className="px-3 py-6 text-center text-[13px] text-muted">Nothing matches.</Command.Empty>
         <Command.Group heading="Go to" className={heading}>
           <Command.Item className={item} onSelect={() => run(() => navigate({ page: "clusters" }))}>Clusters</Command.Item>
-          <Command.Item className={item} onSelect={() => run(() => navigate({ page: "apply" }))}>Apply YAML</Command.Item>
+          <Command.Item className={item} onSelect={() => run(() => navigate({ page: "apply" }))}>Create or edit (form or YAML)</Command.Item>
           <Command.Item className={item} onSelect={() => run(() => navigate({ page: "audit" }))}>Audit log</Command.Item>
         </Command.Group>
         {active && types.length > 0 && (
