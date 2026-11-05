@@ -3,6 +3,7 @@
 
 import * as AppService from "./appservice.js";
 import * as AuditService from "./auditservice.js";
+import * as CanvasService from "./canvasservice.js";
 import * as ClusterService from "./clusterservice.js";
 import * as FormService from "./formservice.js";
 import * as ForwardService from "./forwardservice.js";
@@ -14,6 +15,7 @@ import * as ShellService from "./shellservice.js";
 export {
     AppService,
     AuditService,
+    CanvasService,
     ClusterService,
     FormService,
     ForwardService,

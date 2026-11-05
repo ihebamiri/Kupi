@@ -39,9 +39,11 @@ interface DetailPanelProps {
   type: ResourceTypeView;
   row: TableRow;
   onClose: () => void;
+  /** Width classes; the canvas places the panel in its own column. */
+  className?: string;
 }
 
-export function DetailPanel({ contextName, type, row, onClose }: DetailPanelProps) {
+export function DetailPanel({ contextName, type, row, onClose, className = "w-[46%] max-w-[760px] min-w-[420px]" }: DetailPanelProps) {
   const isPod = type.group === "" && type.resource === "pods";
   const isWorkload = type.group === "apps" || type.group === "batch" ? HAS_PODS.has(type.resource) : false;
   const tabs: Tab[] = isPod ? ["overview", "metrics", "yaml", "events"] : ["overview", "yaml", "events"];
@@ -75,7 +77,7 @@ export function DetailPanel({ contextName, type, row, onClose }: DetailPanelProp
   };
 
   return (
-    <aside className="flex w-[46%] max-w-[760px] min-w-[420px] flex-col rounded-lg border border-line bg-panel" aria-label={`${type.kind} ${row.name}`}>
+    <aside className={`flex flex-col rounded-lg border border-line bg-panel ${className}`} aria-label={`${type.kind} ${row.name}`}>
       <div className="flex items-start gap-3 border-b border-line px-4 py-3">
         <div className="min-w-0 flex-1">
           <div className="text-[11px] font-medium tracking-wide text-muted uppercase">{type.kind}</div>

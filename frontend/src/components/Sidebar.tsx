@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Cable, ChevronDown, ChevronRight, FileCode, Gauge, Search, ScrollText, Server } from "lucide-react";
+import { Cable, ChevronDown, ChevronRight, FileCode, Gauge, Search, ScrollText, Server, Workflow } from "lucide-react";
 import type { ReactNode } from "react";
 import { useClusters } from "../state/clusters";
 import { useForwards } from "../state/forwards";
@@ -86,6 +86,11 @@ export function Sidebar({ version }: { version: string }) {
         {active && (
           <NavButton label="Overview" active={is({ page: "overview" })} onClick={() => navigate({ page: "overview" })} icon={<Gauge className="size-4" aria-hidden />}>
             Overview
+          </NavButton>
+        )}
+        {active && (
+          <NavButton label="Map" active={is({ page: "canvas" })} onClick={() => navigate({ page: "canvas" })} icon={<Workflow className="size-4" aria-hidden />}>
+            Map
           </NavButton>
         )}
         <NavButton label="Port forwards" active={is({ page: "forwards" })} onClick={() => navigate({ page: "forwards" })} icon={<Cable className="size-4" aria-hidden />}>

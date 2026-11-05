@@ -7,6 +7,7 @@ export type Route =
   | { page: "apply"; manifest?: string; edit?: ResourceRef }
   | { page: "audit" }
   | { page: "overview" }
+  | { page: "canvas" }
   | { page: "forwards" }
   | { page: "resources"; group: string; resource: string };
 
@@ -45,7 +46,7 @@ export function NavProvider({ children }: { children: ReactNode }) {
 
   // Leave resource pages when the cluster goes away.
   useEffect(() => {
-    if (!activeName && (route.page === "resources" || route.page === "overview")) setRoute({ page: "clusters" });
+    if (!activeName && (route.page === "resources" || route.page === "overview" || route.page === "canvas")) setRoute({ page: "clusters" });
   }, [activeName, route.page]);
 
   const findType = useCallback(

@@ -52,6 +52,11 @@ export function CommandPalette() {
               Overview (CPU and memory)
             </Command.Item>
           )}
+          {active && (
+            <Command.Item className={item} onSelect={() => run(() => navigate({ page: "canvas" }))}>
+              Map (how everything connects)
+            </Command.Item>
+          )}
         </Command.Group>
         {active && types.length > 0 && (
           <Command.Group heading="Resources" className={heading}>

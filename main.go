@@ -63,6 +63,7 @@ func main() {
 			application.NewService(bridge.NewFormService(deps)),
 			application.NewService(bridge.NewMetricsService(deps)),
 			application.NewService(bridge.NewForwardService(deps)),
+			application.NewService(bridge.NewCanvasService(deps)),
 		},
 		Assets: application.AssetOptions{
 			Handler:    application.AssetFileServerFS(assets),

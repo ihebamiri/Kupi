@@ -3,6 +3,7 @@
 export {
   AppService,
   AuditService,
+  CanvasService,
   ClusterService,
   ForwardService,
   FormService,

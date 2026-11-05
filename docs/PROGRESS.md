@@ -8,7 +8,7 @@ Scope of the current build: v0.1 + the v0.2 Observe canvas and v0.2 features, pe
 - [x] 2. Core views: resource browser (all types via discovery), logs, shell, events.
 - [x] 3. Forms with YAML sync (hand-designed forms for the main types, generated forms for the rest).
 - [x] 4. Live metrics and port-forward manager.
-- [ ] 5. Observe canvas.
+- [x] 5. Observe canvas.
 - [ ] 6. Images and k3d local clusters.
 - [ ] 7. Secrets and local vault.
 - [ ] 8. Helm, Argo CD / Flux awareness, resource history, incident view, laptop mode.
@@ -82,6 +82,18 @@ Not yet:
 
 - Prometheus as a metrics source, and the kubelet summary fallback for clusters without metrics-server.
 - System tray list of forwards; saved forwards per project.
+
+## Milestone 5 status
+
+Done and verified (unit tests, clicked through in server mode):
+
+- `internal/graph` builds the map from real relationships: Ingress/HTTPRoute → Service → workload (Service selectors matched against pod-template labels), workload → ConfigMap/Secret/claim (volumes, env, envFrom, projected, image pull secrets), autoscaler → target. Pods fold into their workload (ReplicaSets into Deployments, Jobs into CronJobs) with ready counts, restarts and the worst pod state.
+- Missing references (a Secret a pod needs, an Ingress backend) show as dashed red "doesn't exist" nodes. Secret and ConfigMap names come from the table API, so Secret values are never read.
+- Map page (React Flow + ELK layered layout, left to right), namespace frames when viewing all namespaces, refresh every 15 s without re-layout unless objects change.
+- Overlays: health, exposure (everything reachable from public entry points) and security (privileged, host network, host path, may run as root, no memory limit). Clicking an object focuses its neighbourhood, shows its flags and, for config and storage, which workloads a change affects; the detail panel opens beside the map.
+- The map chunk is 1.66 MB (ELK); it loads only when the map opens.
+
+Not yet (later milestones): activity replay, "can A talk to B?" for NetworkPolicies, and the Build (drag-and-drop) canvas.
 
 ## Environment
 
