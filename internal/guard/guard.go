@@ -119,8 +119,8 @@ type Confirmation struct {
 
 // Result reports the outcome of a Commit.
 type Result struct {
-	Outcome string
-	Message string
+	Outcome  string
+	Message  string
 	AuditSeq int64
 }
 

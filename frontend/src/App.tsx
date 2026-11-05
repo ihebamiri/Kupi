@@ -10,6 +10,8 @@ const EditorPage = lazy(() => import("./pages/EditorPage").then((m) => ({ defaul
 import { AuditPage } from "./pages/AuditPage";
 import { ClustersPage } from "./pages/ClustersPage";
 import { ForwardsPage } from "./pages/ForwardsPage";
+import { ImagesPage } from "./pages/ImagesPage";
+import { LocalClustersPage } from "./pages/LocalClustersPage";
 import { OverviewPage } from "./pages/OverviewPage";
 import { ResourcesPage } from "./pages/ResourcesPage";
 import { ClustersProvider } from "./state/clusters";
@@ -24,9 +26,10 @@ function Main() {
       {route.page === "apply" && (
         <Suspense fallback={<p className="text-[13px] text-muted">Loading the editor…</p>}>
           <EditorPage
-            key={route.edit ? `${route.edit.group}/${route.edit.resource}/${route.edit.namespace}/${route.edit.name}` : (route.manifest ?? "new")}
+            key={route.edit ? `${route.edit.group}/${route.edit.resource}/${route.edit.namespace}/${route.edit.name}` : (route.fromImage ?? route.manifest ?? "new")}
             initialManifest={route.manifest}
             edit={route.edit}
+            fromImage={route.fromImage}
             onConnect={() => navigate({ page: "clusters" })}
           />
         </Suspense>
@@ -39,6 +42,8 @@ function Main() {
         </Suspense>
       )}
       {route.page === "forwards" && <ForwardsPage />}
+      {route.page === "images" && <ImagesPage />}
+      {route.page === "local" && <LocalClustersPage />}
       {/* Keyed by type so selection and sort never carry over to another type. */}
       {route.page === "resources" && <ResourcesPage key={`${route.group}/${route.resource}`} group={route.group} resource={route.resource} />}
     </main>

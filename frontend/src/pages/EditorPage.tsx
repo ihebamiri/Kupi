@@ -8,6 +8,7 @@ import { FormService, GuardService, errorMessage, type PlanView, type ResourceRe
 import { updateIn, type Path } from "../lib/objpath";
 import type { SchemaNode } from "../lib/schema";
 import { KINDS, essentialsFor, kindInfo, selectorWarnings, splitApiVersion } from "../lib/templates";
+import { nameFromImage } from "../lib/imageref";
 import { useClusters } from "../state/clusters";
 
 type Mode = "form" | "yaml";
@@ -19,13 +20,15 @@ interface EditorPageProps {
   onConnect: () => void;
   initialManifest?: string;
   edit?: ResourceRef;
+  /** Start a Deployment for this image. */
+  fromImage?: string;
 }
 
 /**
  * Create or edit any object with a form or YAML. Both edit the same object;
  * every change is previewed by the Guard before anything is applied.
  */
-export function EditorPage({ onConnect, initialManifest, edit }: EditorPageProps) {
+export function EditorPage({ onConnect, initialManifest, edit, fromImage }: EditorPageProps) {
   const { active, namespace } = useClusters();
   const [yamlText, setYamlText] = useState(initialManifest ?? "");
   const [obj, setObj] = useState<Obj | null>(null);
@@ -64,6 +67,27 @@ export function EditorPage({ onConnect, initialManifest, edit }: EditorPageProps
           setYamlText(y);
         })
         .catch((err) => setError(errorMessage(err)));
+    } else if (fromImage) {
+      const info = KINDS.find((k) => k.kind === "Deployment");
+      if (info?.template) {
+        const name = nameFromImage(fromImage);
+        let obj = info.template(namespace || "default") as Obj;
+        for (const [path, value] of [
+          [["metadata", "name"], name],
+          [["metadata", "labels"], { app: name }],
+          [["spec", "selector", "matchLabels"], { app: name }],
+          [["spec", "template", "metadata", "labels"], { app: name }],
+          [["spec", "template", "spec", "containers", 0, "name"], name],
+          [["spec", "template", "spec", "containers", 0, "image"], fromImage],
+          // A locally loaded image isn't in any registry: don't try to pull it.
+          [["spec", "template", "spec", "containers", 0, "imagePullPolicy"], "IfNotPresent"],
+        ] as [Path, unknown][]) {
+          obj = updateIn(obj, path, value) as Obj;
+        }
+        source.current = "form";
+        setFromTemplate(true);
+        setObj(obj);
+      }
     } else if (!initialManifest) {
       startFrom("Deployment");
     }

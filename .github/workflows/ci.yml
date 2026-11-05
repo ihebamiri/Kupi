@@ -39,6 +39,9 @@ jobs:
           npm ci
           npm test
           npm run build
+      - name: Go formatting
+        if: runner.os == 'Linux'
+        run: test -z "$(gofmt -l internal main.go)" || (gofmt -l internal main.go; exit 1)
       - name: Go vet
         run: go vet ./...
       - name: Go tests (includes architecture rules)

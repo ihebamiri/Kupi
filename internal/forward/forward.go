@@ -196,7 +196,9 @@ func (m *Manager) List() []Forward {
 	for _, e := range m.forwards {
 		out = append(out, e.Forward)
 	}
-	sort.Slice(out, func(i, j int) bool { return out[i].Since < out[j].Since || (out[i].Since == out[j].Since && out[i].ID < out[j].ID) })
+	sort.Slice(out, func(i, j int) bool {
+		return out[i].Since < out[j].Since || (out[i].Since == out[j].Since && out[i].ID < out[j].ID)
+	})
 	return out
 }
 

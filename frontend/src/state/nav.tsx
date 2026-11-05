@@ -4,7 +4,9 @@ import { useClusters } from "./clusters";
 
 export type Route =
   | { page: "clusters" }
-  | { page: "apply"; manifest?: string; edit?: ResourceRef }
+  | { page: "apply"; manifest?: string; edit?: ResourceRef; fromImage?: string }
+  | { page: "images" }
+  | { page: "local" }
   | { page: "audit" }
   | { page: "overview" }
   | { page: "canvas" }

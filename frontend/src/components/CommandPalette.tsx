@@ -47,6 +47,8 @@ export function CommandPalette() {
           <Command.Item className={item} onSelect={() => run(() => navigate({ page: "apply" }))}>Create or edit (form or YAML)</Command.Item>
           <Command.Item className={item} onSelect={() => run(() => navigate({ page: "audit" }))}>Audit log</Command.Item>
           <Command.Item className={item} onSelect={() => run(() => navigate({ page: "forwards" }))}>Port forwards</Command.Item>
+          <Command.Item className={item} onSelect={() => run(() => navigate({ page: "images" }))}>Images (local and Docker Hub)</Command.Item>
+          <Command.Item className={item} onSelect={() => run(() => navigate({ page: "local" }))}>Local clusters (k3d)</Command.Item>
           {active && (
             <Command.Item className={item} onSelect={() => run(() => navigate({ page: "overview" }))}>
               Overview (CPU and memory)

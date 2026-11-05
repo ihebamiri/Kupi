@@ -8,6 +8,8 @@ import * as ClusterService from "./clusterservice.js";
 import * as FormService from "./formservice.js";
 import * as ForwardService from "./forwardservice.js";
 import * as GuardService from "./guardservice.js";
+import * as ImageService from "./imageservice.js";
+import * as LocalClusterService from "./localclusterservice.js";
 import * as LogService from "./logservice.js";
 import * as MetricsService from "./metricsservice.js";
 import * as ResourceService from "./resourceservice.js";
@@ -20,6 +22,8 @@ export {
     FormService,
     ForwardService,
     GuardService,
+    ImageService,
+    LocalClusterService,
     LogService,
     MetricsService,
     ResourceService,
@@ -34,18 +38,25 @@ export type {
     Connection,
     ContainerView,
     ContextInfo,
+    EngineInfo,
     EventView,
+    ImageDetailView,
+    ImageView,
+    LayerView,
     LogRequest,
     NodeMetrics,
     ParseResult,
     PlanView,
     PodMetrics,
     PortOption,
+    PullEvent,
     ResourceRef,
     ResourceTypeView,
     Resources,
+    SearchView,
     TableColumn,
     TableRow,
     TableView,
+    TagView,
     TypeRef
 } from "./models.js";

@@ -24,6 +24,11 @@ export const KupiForwards = "kupi:forwards";
 export const KupiLogs = "kupi:logs";
 
 /**
+ * Name of the custom event "kupi:pull".
+ */
+export const KupiPull = "kupi:pull";
+
+/**
  * Name of the custom event "kupi:shell".
  */
 export const KupiShell = "kupi:shell";

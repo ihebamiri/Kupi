@@ -9,7 +9,7 @@ Scope of the current build: v0.1 + the v0.2 Observe canvas and v0.2 features, pe
 - [x] 3. Forms with YAML sync (hand-designed forms for the main types, generated forms for the rest).
 - [x] 4. Live metrics and port-forward manager.
 - [x] 5. Observe canvas.
-- [ ] 6. Images and k3d local clusters.
+- [x] 6. Images and k3d local clusters.
 - [ ] 7. Secrets and local vault.
 - [ ] 8. Helm, Argo CD / Flux awareness, resource history, incident view, laptop mode.
 - [ ] 9. Final checks before maintainer testing.
@@ -94,6 +94,22 @@ Done and verified (unit tests, clicked through in server mode):
 - The map chunk is 1.66 MB (ELK); it loads only when the map opens.
 
 Not yet (later milestones): activity replay, "can A talk to B?" for NetworkPolicies, and the Build (drag-and-drop) canvas.
+
+## Milestone 6 status
+
+Done and verified (unit tests, integration tests against Docker 29 and k3d, clicked through in server mode):
+
+- `internal/engine`: a small Docker Engine API client (Docker and Podman) over the Unix socket or Windows named pipe. TCP endpoints are refused. Chosen over the full Docker SDK to keep the dependency tree small; the only new module is Microsoft's go-winio for named pipes.
+- Images page: local images (size, age, in use), details with a layer explorer, environment variable names only (values can hold baked-in secrets), and a root-user warning. Docker Hub search with Official badges and a look-alike warning for typo-squatted names; recent tags from Docker Hub; pull any reference with live progress; remove; disk usage with prune actions.
+- "Load into cluster" for k3d and kind is Kupi's own importer, not `k3d image import`. With Docker's containerd image store, k3d's import fails inside the node ("content digest not found") but still reports success. Kupi exports only the node platform (`docker save --platform` piped into `ctr images import` in each node, process to process, no shell), then verifies the image is in every node. minikube uses `minikube image load`. Only clusters labelled local qualify; every load is audited.
+- "Deploy" opens the editor with a secure Deployment for the image, with `imagePullPolicy: IfNotPresent`.
+- Local clusters page: create (API on 127.0.0.1, never switches the kubectl context, optional agents and k3s version), start, stop, delete (typed confirmation). Create and delete are audited.
+
+Not yet:
+
+- Image vulnerability scanning and signature checks (design: v0.3).
+- Private registry logins for pulls (comes with the secrets milestone).
+- Tag lists for registries other than Docker Hub.
 
 ## Environment
 

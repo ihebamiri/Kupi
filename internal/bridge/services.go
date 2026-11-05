@@ -47,6 +47,7 @@ type Deps struct {
 	Live      *live.Manager
 	Metrics   *metrics.Manager
 	Forwards  *forward.Manager
+	Emit      live.Emitter
 	ConfigDir string
 }
 

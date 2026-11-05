@@ -103,6 +103,17 @@ export interface ContextInfo {
 }
 
 /**
+ * EngineInfo describes the local container engine.
+ */
+export interface EngineInfo {
+    "available": boolean;
+    "kind": string;
+    "version": string;
+    "endpoint": string;
+    "reason": string;
+}
+
+/**
  * EventView is a Kubernetes event about an object.
  */
 export interface EventView {
@@ -112,6 +123,48 @@ export interface EventView {
     "count": number;
     "lastSeen": string;
     "source": string;
+}
+
+/**
+ * ImageDetailView describes one image without exposing environment values,
+ * which can hold secrets baked in at build time.
+ */
+export interface ImageDetailView {
+    "id": string;
+    "tags": string[] | null;
+    "digests": string[] | null;
+    "created": string;
+    "size": number;
+    "platform": string;
+    "user": string;
+    "runsAsRoot": boolean;
+    "entrypoint": string[] | null;
+    "cmd": string[] | null;
+    "ports": string[] | null;
+    "envNames": string[] | null;
+    "labels": { [_ in string]?: string } | null;
+    "layers": LayerView[] | null;
+}
+
+/**
+ * ImageView is one local image.
+ */
+export interface ImageView {
+    "id": string;
+    "tags": string[] | null;
+    "size": number;
+    "created": string;
+    "dangling": boolean;
+    "containers": number;
+}
+
+/**
+ * LayerView is one layer of an image.
+ */
+export interface LayerView {
+    "createdBy": string;
+    "size": number;
+    "created": string;
 }
 
 /**
@@ -189,6 +242,18 @@ export interface PortOption {
 }
 
 /**
+ * PullEvent reports a pull's progress.
+ */
+export interface PullEvent {
+    "id": string;
+    "ref": string;
+    "percent": number;
+    "status": string;
+    "done": boolean;
+    "error": string;
+}
+
+/**
  * ResourceRef names one object.
  */
 export interface ResourceRef {
@@ -223,6 +288,22 @@ export interface Resources {
 }
 
 /**
+ * SearchView is one registry search hit.
+ */
+export interface SearchView {
+    "name": string;
+    "description": string;
+    "stars": number;
+    "official": boolean;
+
+    /**
+     * LooksLike names the official image this one resembles, a common
+     * trick for passing off malicious images.
+     */
+    "looksLike": string;
+}
+
+/**
  * TableColumn is one column of a server-side table.
  */
 export interface TableColumn {
@@ -254,6 +335,15 @@ export interface TableView {
     "rows": TableRow[] | null;
     "resourceVersion": string;
     "truncated": boolean;
+}
+
+/**
+ * TagView is one tag of a Docker Hub repository.
+ */
+export interface TagView {
+    "name": string;
+    "size": number;
+    "updated": string;
 }
 
 /**

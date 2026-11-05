@@ -71,9 +71,9 @@ var groupCategories = map[string]Category{
 
 // hidden types duplicate others or are deprecated.
 var hidden = map[string]bool{
-	"events.k8s.io/events": true, // same objects as /events
-	"/componentstatuses":   true, // deprecated
-	"/podtemplates":        true,
+	"events.k8s.io/events":    true, // same objects as /events
+	"/componentstatuses":      true, // deprecated
+	"/podtemplates":           true,
 	"/replicationcontrollers": true, // superseded by Deployments
 }
 

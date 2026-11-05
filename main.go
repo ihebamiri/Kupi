@@ -40,6 +40,7 @@ func init() {
 	application.RegisterEvent[live.LogBatch](live.EventLogs)
 	application.RegisterEvent[live.ShellChunk](live.EventShell)
 	application.RegisterEvent[forward.Changed](forward.Event)
+	application.RegisterEvent[bridge.PullEvent](bridge.EventPull)
 }
 
 func main() {
@@ -64,6 +65,8 @@ func main() {
 			application.NewService(bridge.NewMetricsService(deps)),
 			application.NewService(bridge.NewForwardService(deps)),
 			application.NewService(bridge.NewCanvasService(deps)),
+			application.NewService(bridge.NewImageService(deps)),
+			application.NewService(bridge.NewLocalClusterService(deps)),
 		},
 		Assets: application.AssetOptions{
 			Handler:    application.AssetFileServerFS(assets),
@@ -128,6 +131,7 @@ func buildDeps(emitter live.Emitter) (bridge.Deps, error) {
 		Live:      live.New(emitter),
 		Metrics:   metrics.New(),
 		Forwards:  forward.New(emitter),
+		Emit:      emitter,
 		ConfigDir: dir,
 	}, nil
 }

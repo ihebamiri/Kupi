@@ -3,6 +3,7 @@ module github.com/iheb-amiri/kupi
 go 1.26.0
 
 require (
+	github.com/Microsoft/go-winio v0.6.2
 	github.com/wailsapp/wails/v3 v3.1.0
 	k8s.io/api v0.37.2
 	k8s.io/apimachinery v0.37.2

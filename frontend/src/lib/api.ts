@@ -8,13 +8,29 @@ export {
   ForwardService,
   FormService,
   GuardService,
+  ImageService,
+  LocalClusterService,
   LogService,
   MetricsService,
   ResourceService,
   ShellService,
 } from "../../bindings/github.com/iheb-amiri/kupi/internal/bridge";
 
-export type { NodeMetrics, PodMetrics, PortOption, Resources } from "../../bindings/github.com/iheb-amiri/kupi/internal/bridge";
+export type {
+  EngineInfo,
+  ImageDetailView,
+  ImageView,
+  LayerView,
+  NodeMetrics,
+  PodMetrics,
+  PortOption,
+  PullEvent,
+  Resources,
+  SearchView,
+  TagView,
+} from "../../bindings/github.com/iheb-amiri/kupi/internal/bridge";
+export type { DiskUsage } from "../../bindings/github.com/iheb-amiri/kupi/internal/engine";
+export type { Cluster as LocalCluster, CreateOptions, Tool } from "../../bindings/github.com/iheb-amiri/kupi/internal/localk8s";
 export type { NodeUsage, Overview, PodUsage, Sample, Status as MetricsStatus } from "../../bindings/github.com/iheb-amiri/kupi/internal/metrics";
 export type { Changed as ForwardsChanged, Forward, Target as ForwardTarget } from "../../bindings/github.com/iheb-amiri/kupi/internal/forward";
 
@@ -39,7 +55,7 @@ export type {
 
 export type { Changed, LogBatch, LogLine, ShellChunk } from "../../bindings/github.com/iheb-amiri/kupi/internal/live";
 
-export { KupiChanged, KupiForwards, KupiLogs, KupiShell } from "../../bindings/events";
+export { KupiChanged, KupiForwards, KupiLogs, KupiPull, KupiShell } from "../../bindings/events";
 
 /** Turns a rejected backend call into a readable sentence. */
 export function errorMessage(err: unknown): string {
