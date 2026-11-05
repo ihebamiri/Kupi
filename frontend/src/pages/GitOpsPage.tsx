@@ -88,7 +88,7 @@ export function GitOpsPage() {
               {a.operation && a.operation !== "Succeeded" && <Badge className={syncTone(a.operation)}>Last operation {a.operation.toLowerCase()}</Badge>}
               {a.suspended && <Badge className="bg-warn/15 text-warn">Suspended</Badge>}
               <div className="ml-auto flex gap-1">
-                {a.repoUrl && (
+                {a.repoUrl.startsWith("https://") && (
                   <Button variant="ghost" icon={<ExternalLink className="size-4" />} title={a.repoUrl} onClick={() => void Browser.OpenURL(a.repoUrl)}>
                     Repository
                   </Button>

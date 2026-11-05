@@ -95,7 +95,7 @@ func main() {
 		},
 	})
 	emitter.Set(func(name string, data any) { app.Event.Emit(name, data) })
-	deps.Clipboard.Attach(app.Clipboard)
+	deps.Clipboard.Attach(clipboard.Native(app.Clipboard))
 
 	app.Window.NewWithOptions(application.WebviewWindowOptions{
 		Title:                      "Kupi",

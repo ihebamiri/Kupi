@@ -178,6 +178,11 @@ func (s *Store) Changes(contextName string, q Query) ([]Change, error) {
 		}
 		return true
 	})
+	// Records are read oldest first; reverse before the stable sort so
+	// changes with the same timestamp still come out newest first.
+	for i, j := 0, len(out)-1; i < j; i, j = i+1, j-1 {
+		out[i], out[j] = out[j], out[i]
+	}
 	sort.SliceStable(out, func(i, j int) bool { return out[i].Time.After(out[j].Time) })
 	if q.Limit > 0 && len(out) > q.Limit {
 		out = out[:q.Limit]

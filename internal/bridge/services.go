@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/url"
 	"path/filepath"
 	"regexp"
 	"runtime"
@@ -194,6 +195,9 @@ func (s *ClusterService) Connect(ctx context.Context, contextName string) (Conne
 		var nt *kube.NotTrustedError
 		if errors.As(err, &nt) {
 			return Connection{}, fmt.Errorf("trust this kubeconfig first: %w", err)
+		}
+		if info, ierr := s.d.Kube.Loader().Context(contextName); ierr == nil {
+			return Connection{}, explainConnectError(info.Server, err)
 		}
 		return Connection{}, err
 	}
@@ -454,4 +458,20 @@ func nonNil(s []string) []string {
 		return []string{}
 	}
 	return s
+}
+
+// explainConnectError adds advice for a known trap: k3d on Windows writes
+// https://host.docker.internal:<port> into the kubeconfig, and that name
+// can resolve to a stale address, so connections just time out.
+func explainConnectError(server string, err error) error {
+	u, perr := url.Parse(server)
+	if perr != nil || !strings.EqualFold(u.Hostname(), "host.docker.internal") {
+		return err
+	}
+	msg := err.Error()
+	if !strings.Contains(msg, "timeout") && !strings.Contains(msg, "deadline exceeded") && !strings.Contains(msg, "refused") && !strings.Contains(msg, "no such host") {
+		return err
+	}
+	return fmt.Errorf("%w. This cluster's address is %s, and host.docker.internal often points to an old address on Windows. "+
+		"Change the server in your kubeconfig to https://127.0.0.1:%s, or create k3d clusters with --api-port 127.0.0.1:<port> (Kupi does this for clusters it creates)", err, server, u.Port())
 }

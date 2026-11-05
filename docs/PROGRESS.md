@@ -12,7 +12,7 @@ Scope of the current build: v0.1 + the v0.2 Observe canvas and v0.2 features, pe
 - [x] 6. Images and k3d local clusters.
 - [x] 7. Secrets and local vault.
 - [x] 8. Helm, Argo CD / Flux awareness, resource history, incident view, laptop mode.
-- [ ] 9. Final checks before maintainer testing.
+- [x] 9. Final checks before maintainer testing.
 
 ## Milestone 1 status
 
@@ -31,9 +31,9 @@ Not yet verified:
 
 Follow-ups:
 
-- Pin GitHub Actions to commit SHAs before the repository goes public.
-- Add a CodeQL workflow.
-- Kupi should explain the k3d-on-Windows `host.docker.internal` problem when a connection to such a context times out.
+- ~~Pin GitHub Actions to commit SHAs~~ done in milestone 9.
+- ~~Add a CodeQL workflow~~ done in milestone 9.
+- ~~Explain the k3d-on-Windows `host.docker.internal` timeout~~ done in milestone 9.
 
 ## Milestone 2 status
 
@@ -130,7 +130,7 @@ Not verified:
 
 Known limits:
 
-- Windows clipboard history (Win+V) and cloud clipboard can keep a copied value; Kupi only clears the current clipboard. Follow-up: set the "exclude from history" clipboard formats on Windows.
+- ~~Windows clipboard history~~: since milestone 9, copies are marked as excluded from clipboard history, cloud sync and clipboard monitors. Linux clipboard managers may still keep history.
 - Go can't reliably wipe strings, so decrypted vault values stay in process memory until garbage-collected after locking.
 - SOPS, Sealed Secrets and External Secrets are detected and explained, not created or decrypted.
 - Kupi's own image pulls (Images page) still don't use registry logins.
@@ -159,6 +159,20 @@ Deviations from the design doc:
 
 - History and saved events use append-only JSON lines files instead of SQLite, like the audit log; no SQLite dependency was added.
 - The Helm SDK grows the binary: the server-mode test build went from 77 MB to 93 MB.
+
+## Milestone 9 status
+
+Final checks before maintainer testing, done:
+
+- Security sweep against the 11 rules: every bridge method validates its inputs (most in their first lines, the rest one call down); no logging beyond fatal startup errors (the Helm SDK's logs are discarded); every file write goes through the user-only, atomic helpers; k3d and Docker are run with argument lists and validated names; the frontend has no unsafe HTML, no remote code, and opens only https repository links and 127.0.0.1 forward addresses. The architecture tests now also cover Helm.
+- Dependencies: `npm audit` clean. `govulncheck` found two reachable advisories in `jose2go` (pulled in by the keyring library's file backend, which Kupi never enables); upgraded to 1.7.0, and `golang.org/x/net` to 0.62.0. One advisory remains in `golang.org/x/crypto`: Kupi doesn't call the affected code and no tagged fix exists yet.
+- Builds: every internal package compiles and vets for Linux (`GOOS=linux`); the Windows production binary (63.7 MB, production tags, stripped) starts its native window with WebView2. The Linux app itself still needs building in WSL2 (cgo and WebKitGTK).
+- Fixed: connecting to a k3d context whose kubeconfig points at `host.docker.internal` now explains the stale-address problem and the fix when it times out.
+- Fixed: on Windows, copied Secret and vault values are marked as excluded from clipboard history (Win+V), cloud clipboard sync and clipboard monitors. Verified against the real clipboard.
+- Fixed: history changes with the same timestamp could come out oldest first (a flaky test caught it).
+- CI: every action pinned to a commit SHA (checkout v7.0.1, setup-go v7.0.0, setup-node v7.1.0) and a CodeQL workflow for Go and TypeScript added. Neither has run yet: there's no remote.
+- Docs: `docs/TESTING.md` is the hands-on checklist for maintainer testing; the README lists what Kupi does and how to run the tests.
+- Local builds of everything at once can run out of memory with the Helm SDK; `-p 2` avoids it.
 
 ## Environment
 
