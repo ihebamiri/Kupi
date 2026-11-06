@@ -1,0 +1,62 @@
+# A manifest with several objects, for testing "Open file" and multi-object
+# apply. It creates its own namespace, so the objects inside it can only be
+# checked by the cluster when they're applied. Kupi applies them in a safe
+# order: the namespace first, then config, then the workload and Service.
+apiVersion: v1
+kind: Service
+metadata:
+  name: hello
+  namespace: kupi-multi
+spec:
+  selector:
+    app: hello
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hello
+  namespace: kupi-multi
+  labels:
+    app: hello
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: hello
+  template:
+    metadata:
+      labels:
+        app: hello
+    spec:
+      containers:
+        - name: hello
+          image: nginxinc/nginx-unprivileged:1.27-alpine
+          ports:
+            - name: http
+              containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: hello-settings
+          resources:
+            requests:
+              cpu: 25m
+              memory: 32Mi
+            limits:
+              memory: 64Mi
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hello-settings
+  namespace: kupi-multi
+data:
+  GREETING: hello from a multi-object manifest
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kupi-multi

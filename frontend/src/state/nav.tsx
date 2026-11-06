@@ -17,6 +17,8 @@ export type Route =
   | { page: "gitops" }
   | { page: "helm" }
   | { page: "incident" }
+  | { page: "terminal" }
+  | { page: "settings" }
   | { page: "resources"; group: string; resource: string; select?: { namespace: string; name: string } };
 
 interface NavState {

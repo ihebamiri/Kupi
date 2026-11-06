@@ -24,6 +24,8 @@ import (
 	"github.com/iheb-amiri/kupi/internal/live"
 	"github.com/iheb-amiri/kupi/internal/metrics"
 	"github.com/iheb-amiri/kupi/internal/profile"
+	"github.com/iheb-amiri/kupi/internal/settings"
+	"github.com/iheb-amiri/kupi/internal/terminal"
 	"github.com/iheb-amiri/kupi/internal/trust"
 	"github.com/iheb-amiri/kupi/internal/vault"
 )
@@ -45,6 +47,7 @@ func init() {
 	application.RegisterEvent[live.ShellChunk](live.EventShell)
 	application.RegisterEvent[forward.Changed](forward.Event)
 	application.RegisterEvent[bridge.PullEvent](bridge.EventPull)
+	application.RegisterEvent[terminal.Chunk](terminal.EventName)
 }
 
 func main() {
@@ -77,6 +80,8 @@ func main() {
 			application.NewService(bridge.NewIncidentService(deps)),
 			application.NewService(bridge.NewGitOpsService(deps)),
 			application.NewService(bridge.NewHelmService(deps)),
+			application.NewService(bridge.NewSettingsService(deps)),
+			application.NewService(bridge.NewTerminalService(deps)),
 		},
 		Assets: application.AssetOptions{
 			Handler:    application.AssetFileServerFS(assets),
@@ -84,6 +89,7 @@ func main() {
 		},
 		Linux: application.LinuxOptions{ProgramName: "kupi"},
 		OnShutdown: func() {
+			deps.Terminals.CloseAll()
 			deps.Live.StopAll()
 			deps.Forwards.StopAll()
 			deps.Metrics.StopAll()
@@ -96,6 +102,10 @@ func main() {
 	})
 	emitter.Set(func(name string, data any) { app.Event.Emit(name, data) })
 	deps.Clipboard.Attach(clipboard.Native(app.Clipboard))
+	deps.Native.Set(
+		func(title, message, accept string) bool { return nativeConfirm(app, title, message, accept) },
+		func(url string) error { return app.Browser.OpenURL(url) },
+	)
 
 	app.Window.NewWithOptions(application.WebviewWindowOptions{
 		Title:                      "Kupi",
@@ -137,6 +147,11 @@ func buildDeps(emitter live.Emitter) (bridge.Deps, error) {
 		keys.Key = vault.KeyNameFor(dir)
 	}
 	historyStore := history.Open(filepath.Join(dir, "history"))
+	settingsStore, err := settings.Open(filepath.Join(dir, "settings.json"))
+	if err != nil {
+		return bridge.Deps{}, err
+	}
+	bridge.CleanTerminalFiles(dir)
 	manager := kube.NewManager(kubeconfig.NewLoader(), trustStore, profiles)
 	sessions := guard.SessionsFunc(func(name string) (guard.Session, bool) {
 		s, ok := manager.Session(name)
@@ -160,7 +175,11 @@ func buildDeps(emitter live.Emitter) (bridge.Deps, error) {
 		History:      history.NewRecorder(historyStore),
 		HistoryStore: historyStore,
 		ConfigDir:    dir,
+		Settings:     settingsStore,
+		Terminals:    terminal.NewManager(func(c terminal.Chunk) { emitter.Emit(terminal.EventName, c) }),
+		Native:       &bridge.Native{},
 	}
+	deps.ApplySettings(settingsStore.Get())
 	if deps.Laptop, err = bridge.NewLaptop(filepath.Join(dir, "laptop.json"), deps); err != nil {
 		return bridge.Deps{}, err
 	}

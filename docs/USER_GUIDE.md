@@ -21,10 +21,12 @@ Contents:
 15. [Local clusters and laptop mode](#15-local-clusters-and-laptop-mode)
 16. [Port forwards](#16-port-forwards)
 17. [Create or edit](#17-create-or-edit)
-18. [Audit log](#18-audit-log)
-19. [Keyboard and command palette](#19-keyboard-and-command-palette)
-20. [Where Kupi keeps its files](#20-where-kupi-keeps-its-files)
-21. [Troubleshooting](#21-troubleshooting)
+18. [Terminal](#18-terminal)
+19. [Settings](#19-settings)
+20. [Audit log](#20-audit-log)
+21. [Keyboard and command palette](#21-keyboard-and-command-palette)
+22. [Where Kupi keeps its files](#22-where-kupi-keeps-its-files)
+23. [Troubleshooting](#23-troubleshooting)
 
 ---
 
@@ -44,32 +46,32 @@ Kupi itself needs nothing else: it has its own Kubernetes client and its own Hel
 ## 2. The window at a glance
 
 ```
-┌─────────────┬──────────────────────────────────────────────────────────────┐
-│ K Kupi  Ctrl K│ [cluster ▾] [Local]  v1.35.5  [All namespaces ▾]  Editing on │  ← context bar
-│             ├──────────────────────────────────────────────────────────────┤
-│ Clusters    │                                                              │
-│ Overview    │                                                              │
-│ Map         │                    the page you opened                       │
-│ Incident    │                                                              │
-│ History     │                                          ┌───────────────────┤
-│ Helm        │                                          │  detail panel     │
-│ GitOps      │                                          │  (when you click  │
-│ Secrets     │                                          │   an object)      │
-│ Vault       │                                          │                   │
-│ Images      │                                          │                   │
-│ Local clusters                                         │                   │
-│ Port forwards                                          │                   │
-│ Create or edit                                         │                   │
-│ Audit log   │                                          │                   │
-│ ─────────── │                                          │                   │
-│ Filter types│                                          │                   │
-│ ▾ Workloads │                                          │                   │
-│   Pods …    │                                          │                   │
-│ ▸ Network   │                                          │                   │
-└─────────────┴──────────────────────────────────────────┴───────────────────┘
+┌────────────────┬───────────────────────────────────────────────────────────┐
+│ K› KUPI  Ctrl K│ [cluster ▾] [Local]  v1.35.5  [All namespaces ▾]  Editing on│  ← context bar
+│ CLUSTERS       ├───────────────────────────────────────────────────────────┤
+│  Clusters      │                                                           │
+│  Overview      │                                                           │
+│  Map           │                 the page you opened                       │
+│  Incident      │                                                           │
+│  History       │                                       ┌───────────────────┤
+│  Helm          │                                       │  detail panel     │
+│  GitOps        │                                       │  (when you click  │
+│  Secrets       │                                       │   an object)      │
+│ WORKSPACE      │                                       │                   │
+│  Create or edit│                                       │                   │
+│  Terminal      │                                       │                   │
+│  Port forwards │                                       │                   │
+│  Images        │                                       │                   │
+│  Local clusters│                                       │                   │
+│  Vault         │                                       │                   │
+│ ────────────── │                                       │                   │
+│ Filter types   │                                       │                   │
+│ ▾ Workloads …  │                                       │                   │
+│ Audit  Settings│                                       │                   │
+└────────────────┴───────────────────────────────────────┴───────────────────┘
 ```
 
-- **Sidebar (left).** The top part lists Kupi's pages. Pages that need a cluster (Overview, Map, Incident, History, Helm, GitOps, Secrets) appear once you are connected. Below them is every resource type the connected cluster serves, grouped into Workloads, Network, Config, Storage, Access control, Cluster and Custom resources. Type in "Filter types" to find one (short names like `deploy` or `svc` work).
+- **Sidebar (left).** Kupi's pages, in two groups. **Clusters** holds the cluster list and the pages that need a connected cluster (Overview, Map, Incident, History, Helm, GitOps, Secrets), which appear once you're connected. **Workspace** holds the tools that work on their own: Create or edit, Terminal, Port forwards, Images, Local clusters and Vault. Below them is every resource type the connected cluster serves, grouped into Workloads, Network, Config, Storage, Access control, Cluster and Custom resources. Type in "Filter types" to find one (short names like `deploy` or `svc` work). The **Audit** and **Settings** buttons sit at the bottom, next to the version.
 - **Context bar (top).** The cluster you're working on, its profile (Local, Dev, Staging or Production), its Kubernetes version, the namespace in view ("All namespaces" or one namespace), and the editing switch.
 - **Main area.** The page you opened.
 - **Detail panel (right).** Opens when you click an object in a list or on the map.
@@ -184,6 +186,7 @@ A live diagram of how things connect, left to right: Ingress or HTTPRoute → Se
   - **Exposure:** highlights everything reachable from a public entry point.
   - **Security:** flags privileged containers, host network, host paths, containers that may run as root, and no memory limit.
 - **Click an object** to focus on its neighbours and see its flags. For a ConfigMap or Secret it lists the workloads a change would affect. The detail panel opens beside the map.
+- **Pods of a workload.** Click a Deployment, StatefulSet, DaemonSet, ReplicaSet, Job, CronJob or Service, and its pods fan out under it as small cards (failing ones first, with their status, readiness and restarts). The side panel lists every pod with its node and age. Click a pod, on the map or in the list, for its logs, shell, events and metrics; **Back to …** returns to the workload. Settings → Map can turn the cards off.
 - **Find on the map** searches names.
 - With "All namespaces", each namespace is a frame.
 
@@ -369,16 +372,62 @@ Press **Laptop mode** on a cluster:
 **Where:** sidebar → Create or edit, or **Edit with form or YAML** on an object.
 
 - **Start from:** pick a secure template (Deployment, Service, ConfigMap, Namespace, Job, CronJob, PersistentVolumeClaim), or paste or write YAML from scratch.
-- **Form and YAML** edit the same object; switch at any time. The form comes from the cluster's own schema, so it works for custom resources too. Important fields come first, and **All fields**, with search, shows everything.
+- **Open file** loads a `.yaml`, `.yml` or `.json` file from your computer (up to 1 MB) into the YAML view. Kupi reads only the file you pick.
+- **Several objects at once.** A manifest can hold many objects separated by `---` (or a `kind: List`), like most manifests you copy from documentation. The page shows how many it holds. **Preview change** checks each object on its own (permissions, dry run, diff) and the review dialog lists them in the order they'll be applied, the same order Helm uses: namespaces, config, storage, roles and Services first, then workloads, then Ingresses. Click an object to see its diff. One confirmation applies them all, and each gets its own audit entry.
+  - Objects in a namespace the same manifest creates, or of a type its CustomResourceDefinition defines, show **Checked when applied**: the cluster can only check them once the namespace or type exists. Kupi waits for a new type to be ready before applying objects of that type.
+  - If an object fails, Kupi stops and tells you which ones before it were applied (Kubernetes has no all-or-nothing apply).
+- **Form and YAML** edit the same object; switch at any time. The form edits one object, so with a multi-object manifest use the YAML view. The form comes from the cluster's own schema, so it works for custom resources too. Important fields come first, and **All fields**, with search, shows everything.
+- **Suggestions.** Fields that name another object offer the ones that exist: type a name, or open the list. This covers the namespace, ConfigMaps and Secrets (and their key names, never values) used by environment variables and volumes, ServiceAccounts, PersistentVolumeClaims, storage, ingress and priority classes, nodes, the Service behind an Ingress, an autoscaler's target, and RBAC roles and subjects. A name that doesn't exist yet gets a gentle warning, since the same manifest may create it.
+- **Sliders.** CPU, memory and storage requests and limits, and replica counts, have a slider for quick changes next to a box for the exact value (`250m`, `1.5`, `512Mi`, `2Gi`…). The box shows what the value means ("0.25 CPUs", "512 MiB"), and a limit below its request is flagged before the cluster rejects it.
 - Help text comes from the schema. Checks warn when a Deployment's selector doesn't match its pod labels, and show how many pods a Service would select.
 - **Preview change** opens the review dialog. Kupi uses server-side apply. If another tool manages some of the fields you changed, the review lists the conflicts, and **Take over these fields and preview again** is your explicit choice.
 - Secrets are edited on the Secrets page, not here.
 
 ---
 
-## 18. Audit log
+## 18. Terminal
 
-**Where:** sidebar → Audit log.
+**Where:** sidebar → Terminal, or **Ctrl+`** (press it again to go back to where you were).
+
+Your own shell inside Kupi: PowerShell, Command Prompt, Git Bash or WSL on Windows; bash, zsh or fish on Linux. Use kubectl, helm, docker, k3d or anything else the usual way.
+
+**It is off until you turn it on.** The first time, the page explains what the terminal can do and **Turn on the terminal…** opens a system dialog to confirm. Commands typed in the terminal run directly on your computer and clusters: they don't go through Kupi's preview, confirmation or audit log. Opening a terminal is recorded in the audit log, and Settings → Terminal → **Turn off** closes every shell.
+
+What it adds to a plain terminal:
+
+- **kubectl follows Kupi.** Each new tab uses the cluster and namespace you're connected to in Kupi, shown under the tabs, with the profile badge. Your kubeconfig's current context is never changed: Kupi puts a small file in front of your kubeconfig that only picks the context and namespace (it holds no credentials), so even `kubectl config use-context` inside the tab only affects that tab. `KUPI_CONTEXT`, `KUPI_NAMESPACE` and `KUPI_PROFILE` are set for your prompt or scripts.
+- **Production stands out.** A tab on a production cluster has a red bar saying commands skip Kupi's preview.
+- **Paste check.** A paste with a line break would run straight away in most shells, so Kupi shows it first and offers **Paste**, **Paste as one line, don't run**, or Cancel. On production, pasted commands that delete, drain, scale to zero, roll back or uninstall are highlighted in red. You can switch the check off in Settings.
+- **Tabs.** **+** opens a tab (the arrow next to it picks another shell). Tabs keep running while you use other pages. **Ctrl+Shift+T** opens a tab, **Ctrl+Shift+W** closes one, middle-click closes too. When a shell ends, press Enter to start a new one.
+- **Snippets** (lightning icon): ready-made commands for Kubernetes, Helm, Docker and k3d, plus your own from Settings. Picking one types it at the prompt with placeholders such as `NAME` for you to fill in; nothing runs until you press Enter.
+- **Find** (**Ctrl+Shift+F**) searches the output; Enter and Shift+Enter move between matches.
+- **Tools** (wrench icon) lists which of kubectl, helm, docker, k3d, kind, minikube, flux and argocd are installed, with versions, and warns when your kubectl is more than one minor version away from the cluster.
+- **Copy:** select text and press **Ctrl+C** (without a selection Ctrl+C interrupts, as usual) or **Ctrl+Shift+C**. **Copy all output** and **Clear** are in the toolbar.
+- **Links** in the output can be clicked; Kupi asks before opening them in your browser.
+
+---
+
+## 19. Settings
+
+**Where:** the **Settings** button at the bottom of the sidebar.
+
+| Section | What you can set |
+|---|---|
+| Appearance | Theme (System, Dark, Light) and interface size (90 to 150%) |
+| Logs | How many lines to load first, and whether to show timestamps |
+| Map | How often it refreshes, and whether a selected workload's pods fan out under it |
+| Security and privacy | How soon copied secrets are cleared (5 minutes at most), how soon the vault locks itself (8 hours at most), how long change history is kept (1 to 90 days), and a link to the audit log |
+| Terminal | On or off, the shell, whether kubectl follows Kupi's cluster, the paste check, copy on select, font size, scrollback, and your own snippets |
+| Clusters and credentials | The kubeconfig files Kupi reads, the credential plugins you trusted (with **Revoke**), and a link to set cluster profiles |
+| About | Version, license, and where Kupi keeps its files |
+
+Settings are saved on this computer only. Safety limits apply even if someone edits `settings.json` by hand, and changes to safety settings are written to the audit log. **Reset all** returns everything to its defaults and turns the terminal off; your snippets stay.
+
+---
+
+## 20. Audit log
+
+**Where:** the **Audit** button at the bottom of the sidebar, or Settings → Open the audit log.
 
 Every change Kupi made (or tried to make), with the time, cluster, profile, your computer user, your Kubernetes user, the resource, the reason and the outcome. Reveals of Secret values, Helm values, shells, port-forwards, trust and profile changes, and local cluster actions are recorded too.
 
@@ -386,15 +435,16 @@ Every change Kupi made (or tried to make), with the time, cluster, profile, your
 
 ---
 
-## 19. Keyboard and command palette
+## 21. Keyboard and command palette
 
 - **Ctrl+K** opens the command palette: jump to any page, any resource type, or connect to a cluster by typing part of its name.
+- **Ctrl+`** opens the terminal, and goes back on a second press. In the terminal: **Ctrl+Shift+T** new tab, **Ctrl+Shift+W** close tab, **Ctrl+Shift+F** find, **Ctrl+Shift+C** copy.
 - **Esc** closes dialogs and the palette.
 - Every control can be reached with Tab, and dialogs keep focus inside them.
 
 ---
 
-## 20. Where Kupi keeps its files
+## 22. Where Kupi keeps its files
 
 In your user config folder: `%AppData%\kupi` on Windows, `~/.config/kupi` on Linux. Set the environment variable `KUPI_CONFIG_DIR` to use another folder (useful for testing). Only your user can read these files.
 
@@ -403,15 +453,17 @@ In your user config folder: `%AppData%\kupi` on Windows, `~/.config/kupi` on Lin
 | `audit.log` | Audit log |
 | `trust.json` | Kubeconfig files you trusted |
 | `profiles.json` | Profile overrides |
-| `history/` | Recorded changes and warnings (14 days) |
+| `history/` | Recorded changes and warnings (14 days unless changed in Settings) |
 | `vault.json`, `vault.age`, `vault-key.age` | The vault (encrypted) |
 | `laptop.json` | Laptop-mode settings |
+| `settings.json` | Your preferences and terminal snippets |
+| `terminal/` | While a terminal tab is open: the small file that points its kubectl at Kupi's cluster (no credentials). Removed when the tab closes |
 
 Kupi never changes your kubeconfig.
 
 ---
 
-## 21. Troubleshooting
+## 23. Troubleshooting
 
 | Problem | What to do |
 |---|---|

@@ -90,6 +90,8 @@ type Plan struct {
 	Summary   []string
 	Warnings  []string
 	Conflicts []string
+	// Items lists each object of a multi-object apply.
+	Items []PlanItem
 
 	Allowed      bool
 	DeniedReason string
@@ -104,11 +106,16 @@ type Plan struct {
 	// helmExec replaces exec for Helm actions.
 	helmExec func(ctx context.Context, m kube.HelmMutator) error
 	shell    *ShellRequest
-	used     bool
+	// steps replaces exec for multi-object applies.
+	steps []batchStep
+	used  bool
 }
 
 // Resource returns "Kind namespace/name" for display and audit.
 func (p *Plan) Resource() string {
+	if len(p.Items) > 0 {
+		return fmt.Sprintf("%d objects", len(p.Items))
+	}
 	if p.Namespace == "" {
 		return fmt.Sprintf("%s %s", p.Kind, p.Name)
 	}
@@ -265,6 +272,9 @@ func (g *Guard) Commit(ctx context.Context, planID string, c Confirmation) (*Res
 	p, s, err := g.claim(planID, c, false)
 	if err != nil {
 		return nil, err
+	}
+	if len(p.steps) > 0 {
+		return g.commitBatch(ctx, p, s, c)
 	}
 	var execErr error
 	if p.helmExec != nil {

@@ -2,7 +2,9 @@ import { useMemo, useState, type ReactNode } from "react";
 import { ChevronDown, ChevronRight, Plus, Trash2 } from "lucide-react";
 import { getIn, pathLabel, type Path } from "../lib/objpath";
 import { firstSentence, matchesSearch, nodeAt, type SchemaNode } from "../lib/schema";
+import { referenceFor, sliderFor } from "../lib/refs";
 import type { Essential } from "../lib/templates";
+import { CountSlider, FormEnvContext, QuantitySlider, RefInput, ResourcesMap, type FormEnv } from "./FormInputs";
 import { inputClass } from "./ui";
 
 type OnChange = (path: Path, value: unknown) => void;
@@ -12,18 +14,22 @@ interface SchemaFormProps {
   value: unknown;
   onChange: OnChange;
   essentials: Essential[];
+  /** Cluster and default namespace for suggesting existing objects. */
+  env: FormEnv;
 }
 
 /**
  * Form generated from the cluster's own schema. Common fields come first with
- * plain labels; "All fields" reaches everything the schema allows.
+ * plain labels; "All fields" reaches everything the schema allows. Fields that
+ * name another object suggest the ones that exist; sizes and counts get sliders.
  */
-export function SchemaForm({ schema, value, onChange, essentials }: SchemaFormProps) {
+export function SchemaForm({ schema, value, onChange, essentials, env }: SchemaFormProps) {
   const [showAll, setShowAll] = useState(false);
   const [query, setQuery] = useState("");
   const q = query.trim().toLowerCase();
 
   return (
+    <FormEnvContext.Provider value={env}>
     <div className="flex flex-col gap-5">
       <section className="flex flex-col gap-3">
         {essentials.map((e) => {
@@ -58,6 +64,7 @@ export function SchemaForm({ schema, value, onChange, essentials }: SchemaFormPr
         )}
       </section>
     </div>
+    </FormEnvContext.Provider>
   );
 }
 
@@ -134,8 +141,11 @@ function Control({ node, path, value, onChange, query = "", label }: { node: Sch
   const current = getIn(value, path);
   // Every input is named for screen readers: the friendly label, or the field path.
   const name = label ?? pathLabel(path);
+  const kind = typeof (value as { kind?: unknown } | null)?.kind === "string" ? (value as { kind: string }).kind : "";
   switch (node.type) {
-    case "string":
+    case "string": {
+      const ref = node.enum && node.enum.length > 0 ? null : referenceFor(path, value);
+      if (ref) return <RefInput label={name} value={current} onChange={(v) => onChange(path, v)} refSpec={ref} root={value} />;
       if (node.enum && node.enum.length > 0) {
         return (
           <select aria-label={name} className={inputClass} value={typeof current === "string" ? current : ""} onChange={(e) => onChange(path, e.target.value || undefined)}>
@@ -149,12 +159,19 @@ function Control({ node, path, value, onChange, query = "", label }: { node: Sch
         );
       }
       return <TextInput label={name} value={current} onChange={(v) => onChange(path, v)} />;
-    case "quantity":
+    }
+    case "quantity": {
+      const slider = sliderFor(path, kind);
+      if (slider && slider !== "replicas") return <QuantitySlider kind={slider} label={name} value={current} onChange={(v) => onChange(path, v)} />;
       return <TextInput label={name} value={current} placeholder="e.g. 250m, 512Mi, 1Gi" onChange={(v) => onChange(path, v)} />;
+    }
     case "intOrString":
       return <TextInput label={name} value={current} placeholder="number or name" onChange={(v) => onChange(path, v === undefined ? undefined : /^\d+$/.test(v) ? Number(v) : v)} />;
     case "integer":
     case "number":
+      if (node.type === "integer" && sliderFor(path, kind) === "replicas") {
+        return <CountSlider label={name} value={current} onChange={(v) => onChange(path, v)} />;
+      }
       return (
         <input
           aria-label={name}
@@ -177,8 +194,13 @@ function Control({ node, path, value, onChange, query = "", label }: { node: Sch
           <option value="false">false</option>
         </select>
       );
-    case "map":
+    case "map": {
+      const last = path[path.length - 1];
+      if ((last === "requests" || last === "limits") && path[path.length - 2] === "resources" && node.values?.type === "quantity") {
+        return <ResourcesMap path={path} root={value} value={current} storage={kind === "PersistentVolumeClaim" || path[0] === "spec" && path[1] === "volumeClaimTemplates"} onChange={(v) => onChange(path, v)} />;
+      }
       return <MapEditor value={current} onChange={(v) => onChange(path, v)} />;
+    }
     case "array":
       if (node.items?.type === "object") return <ObjectList node={node.items} path={path} value={value} onChange={onChange} query={query} />;
       return <StringList value={current} onChange={(v) => onChange(path, v)} numeric={node.items?.type === "integer"} />;

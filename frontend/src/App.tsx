@@ -21,14 +21,52 @@ import { IncidentPage } from "./pages/IncidentPage";
 import { ResourcesPage } from "./pages/ResourcesPage";
 import { SecretsPage } from "./pages/SecretsPage";
 import { VaultPage } from "./pages/VaultPage";
+import { SettingsPage } from "./pages/SettingsPage";
 import { ClustersProvider } from "./state/clusters";
 import { NavProvider, useNav } from "./state/nav";
+import { SettingsProvider } from "./state/settings";
+// xterm.js and its add-ons load with the terminal.
+const TerminalPage = lazy(() => import("./pages/TerminalPage").then((m) => ({ default: m.TerminalPage })));
+
+const FULL_HEIGHT = new Set(["resources", "apply", "canvas", "secrets", "helm", "terminal"]);
 
 function Main() {
   const { route, navigate } = useNav();
   const openPods = () => navigate({ page: "overview" });
+  // The terminal stays mounted once opened, so its shells and scrollback
+  // survive a visit to another page.
+  const [terminalOpened, setTerminalOpened] = useState(false);
+  useEffect(() => {
+    if (route.page === "terminal") setTerminalOpened(true);
+  }, [route.page]);
+
+  // Ctrl+` opens the terminal (and goes back where you were on a second press).
+  const [previous, setPrevious] = useState<typeof route | null>(null);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.ctrlKey && !e.shiftKey && !e.altKey && e.code === "Backquote") {
+        e.preventDefault();
+        if (route.page === "terminal") navigate(previous ?? { page: "clusters" });
+        else {
+          setPrevious(route);
+          navigate({ page: "terminal" });
+        }
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [route, previous, navigate]);
+
   return (
-    <main className={`min-h-0 flex-1 px-6 py-5 ${route.page === "resources" || route.page === "apply" || route.page === "canvas" || route.page === "secrets" || route.page === "helm" ? "overflow-hidden" : "overflow-y-auto"}`}>
+    <main className={`min-h-0 flex-1 px-6 py-5 ${FULL_HEIGHT.has(route.page) ? "overflow-hidden" : "overflow-y-auto"}`}>
+      {terminalOpened && (
+        <div className={route.page === "terminal" ? "h-full" : "hidden"}>
+          <Suspense fallback={<p className="text-[13px] text-muted">Loading the terminal…</p>}>
+            <TerminalPage visible={route.page === "terminal"} />
+          </Suspense>
+        </div>
+      )}
+      {route.page === "settings" && <SettingsPage />}
       {route.page === "clusters" && <ClustersPage onOpened={openPods} />}
       {route.page === "apply" && (
         <Suspense fallback={<p className="text-[13px] text-muted">Loading the editor…</p>}>
@@ -77,17 +115,19 @@ export default function App() {
   }, []);
 
   return (
-    <ClustersProvider>
-      <NavProvider>
-        <div className="flex h-full">
-          <Sidebar version={version} />
-          <div className="flex min-w-0 flex-1 flex-col">
-            <ContextBar />
-            <Main />
+    <SettingsProvider>
+      <ClustersProvider>
+        <NavProvider>
+          <div className="flex h-full">
+            <Sidebar version={version} />
+            <div className="flex min-w-0 flex-1 flex-col">
+              <ContextBar />
+              <Main />
+            </div>
           </div>
-        </div>
-        <CommandPalette />
-      </NavProvider>
-    </ClustersProvider>
+          <CommandPalette />
+        </NavProvider>
+      </ClustersProvider>
+    </SettingsProvider>
   );
 }

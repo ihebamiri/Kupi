@@ -29,7 +29,9 @@ export function Commit(planID: string, reason: string, typedName: string): $Canc
 }
 
 /**
- * PrepareApply previews applying a single-object YAML or JSON manifest.
+ * PrepareApply previews applying a YAML or JSON manifest. A manifest with
+ * several objects (separated by ---, or a v1 List) is previewed object by
+ * object and applied together.
  */
 export function PrepareApply(contextName: string, manifest: string, forceConflicts: boolean): $CancellablePromise<$models.PlanView> {
     return $Call.ByID(3379160948, contextName, manifest, forceConflicts);

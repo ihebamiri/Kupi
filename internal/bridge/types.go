@@ -62,6 +62,22 @@ type PlanView struct {
 	NeedsReason  bool     `json:"needsReason"`
 	ConfirmName  string   `json:"confirmName"`
 	ExpiresAt    string   `json:"expiresAt"`
+	// Items lists each object when the manifest holds more than one.
+	Items []PlanItemView `json:"items"`
+}
+
+// PlanItemView is one object of a multi-object apply.
+type PlanItemView struct {
+	APIVersion string   `json:"apiVersion"`
+	Kind       string   `json:"kind"`
+	Namespace  string   `json:"namespace"`
+	Name       string   `json:"name"`
+	State      string   `json:"state"`
+	Note       string   `json:"note"`
+	Diff       string   `json:"diff"`
+	Summary    []string `json:"summary"`
+	Warnings   []string `json:"warnings"`
+	Conflicts  []string `json:"conflicts"`
 }
 
 // CommitResult reports a committed change.

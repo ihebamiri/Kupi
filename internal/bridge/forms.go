@@ -4,6 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"slices"
+	"sort"
+	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -12,6 +15,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation"
 	"sigs.k8s.io/yaml"
 
+	"github.com/iheb-amiri/kupi/internal/guard"
 	kschema "github.com/iheb-amiri/kupi/internal/schema"
 	"github.com/iheb-amiri/kupi/internal/validate"
 )
@@ -21,6 +25,9 @@ import (
 type ParseResult struct {
 	JSON  string `json:"json"`
 	Error string `json:"error"`
+	// Objects lists "Kind name" for each object when the manifest holds
+	// several; JSON is then empty because the form edits one at a time.
+	Objects []string `json:"objects"`
 }
 
 // FormService backs the form and YAML editors.
@@ -70,16 +77,24 @@ func (s *FormService) ToYAML(objectJSON string) (string, error) {
 	return string(out), nil
 }
 
-// FromYAML parses one YAML object into JSON.
+// FromYAML parses a YAML manifest. One object comes back as JSON for the
+// form; several come back as a list of names.
 func (s *FormService) FromYAML(manifest string) ParseResult {
 	if err := validate.Manifest(manifest); err != nil {
 		return ParseResult{Error: err.Error()}
 	}
-	obj, err := parseSingleObject(manifest)
+	objs, err := parseObjects(manifest, guard.MaxBatchObjects)
 	if err != nil {
 		return ParseResult{Error: err.Error()}
 	}
-	data, err := json.Marshal(obj.Object)
+	if len(objs) > 1 {
+		names := make([]string, 0, len(objs))
+		for _, o := range objs {
+			names = append(names, strings.TrimSpace(o.GetKind()+" "+o.GetName()))
+		}
+		return ParseResult{Objects: names}
+	}
+	data, err := json.Marshal(objs[0].Object)
 	if err != nil {
 		return ParseResult{Error: err.Error()}
 	}
@@ -146,4 +161,100 @@ func (s *FormService) MatchingPods(ctx context.Context, contextName, namespace s
 		return 0, err
 	}
 	return len(list.Items), nil
+}
+
+// suggestTypes are the object types the form can suggest names for. A fixed
+// list: the form never asks for arbitrary types.
+var suggestTypes = map[string]struct {
+	gvr        schema.GroupVersionResource
+	namespaced bool
+}{
+	"namespaces":             {schema.GroupVersionResource{Version: "v1", Resource: "namespaces"}, false},
+	"configmaps":             {schema.GroupVersionResource{Version: "v1", Resource: "configmaps"}, true},
+	"secrets":                {schema.GroupVersionResource{Version: "v1", Resource: "secrets"}, true},
+	"serviceaccounts":        {schema.GroupVersionResource{Version: "v1", Resource: "serviceaccounts"}, true},
+	"services":               {schema.GroupVersionResource{Version: "v1", Resource: "services"}, true},
+	"persistentvolumeclaims": {schema.GroupVersionResource{Version: "v1", Resource: "persistentvolumeclaims"}, true},
+	"persistentvolumes":      {schema.GroupVersionResource{Version: "v1", Resource: "persistentvolumes"}, false},
+	"nodes":                  {schema.GroupVersionResource{Version: "v1", Resource: "nodes"}, false},
+	"deployments":            {schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"}, true},
+	"statefulsets":           {schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "statefulsets"}, true},
+	"replicasets":            {schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "replicasets"}, true},
+	"storageclasses":         {schema.GroupVersionResource{Group: "storage.k8s.io", Version: "v1", Resource: "storageclasses"}, false},
+	"ingressclasses":         {schema.GroupVersionResource{Group: "networking.k8s.io", Version: "v1", Resource: "ingressclasses"}, false},
+	"priorityclasses":        {schema.GroupVersionResource{Group: "scheduling.k8s.io", Version: "v1", Resource: "priorityclasses"}, false},
+	"roles":                  {schema.GroupVersionResource{Group: "rbac.authorization.k8s.io", Version: "v1", Resource: "roles"}, true},
+	"clusterroles":           {schema.GroupVersionResource{Group: "rbac.authorization.k8s.io", Version: "v1", Resource: "clusterroles"}, false},
+}
+
+// maxSuggestions caps how many names one suggestion list holds.
+const maxSuggestions = 500
+
+// Suggest returns the names of existing objects of one type, for the form's
+// drop-down lists. Namespace is ignored for cluster-wide types.
+func (s *FormService) Suggest(ctx context.Context, contextName, resource, namespace string) ([]string, error) {
+	sess, err := s.d.session(contextName)
+	if err != nil {
+		return nil, err
+	}
+	t, ok := suggestTypes[resource]
+	if !ok {
+		return nil, fmt.Errorf("no suggestions for %q", resource)
+	}
+	ns := ""
+	if t.namespaced {
+		if err := validate.Namespace(namespace); err != nil {
+			return nil, err
+		}
+		ns = namespace
+	}
+	list, err := sess.Reader().List(ctx, t.gvr, ns, metav1.ListOptions{Limit: maxSuggestions})
+	if err != nil {
+		return nil, err
+	}
+	names := make([]string, 0, len(list.Items))
+	for _, it := range list.Items {
+		if resource == "secrets" && isServiceAccountToken(&it) {
+			continue
+		}
+		names = append(names, it.GetName())
+	}
+	sort.Strings(names)
+	return names, nil
+}
+
+// Keys returns the key names (never the values) of a ConfigMap or Secret,
+// for fields such as configMapKeyRef.key and secretKeyRef.key.
+func (s *FormService) Keys(ctx context.Context, contextName, resource, namespace, name string) ([]string, error) {
+	sess, err := s.d.session(contextName)
+	if err != nil {
+		return nil, err
+	}
+	if resource != "configmaps" && resource != "secrets" {
+		return nil, fmt.Errorf("keys are only listed for ConfigMaps and Secrets")
+	}
+	if err := validate.Namespace(namespace); err != nil {
+		return nil, err
+	}
+	if err := validate.Name(name); err != nil {
+		return nil, err
+	}
+	obj, err := sess.Reader().Get(ctx, suggestTypes[resource].gvr, namespace, name)
+	if err != nil {
+		return nil, err
+	}
+	var keys []string
+	for _, field := range []string{"data", "binaryData", "stringData"} {
+		m, _, _ := unstructured.NestedMap(obj.Object, field)
+		for k := range m {
+			keys = append(keys, k)
+		}
+	}
+	sort.Strings(keys)
+	return slices.Compact(keys), nil
+}
+
+func isServiceAccountToken(obj *unstructured.Unstructured) bool {
+	t, _, _ := unstructured.NestedString(obj.Object, "type")
+	return t == "kubernetes.io/service-account-token"
 }

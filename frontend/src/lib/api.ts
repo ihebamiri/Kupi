@@ -18,7 +18,9 @@ export {
   MetricsService,
   ResourceService,
   SecretService,
+  SettingsService,
   ShellService,
+  TerminalService,
   VaultService,
 } from "../../bindings/github.com/iheb-amiri/kupi/internal/bridge";
 
@@ -38,11 +40,19 @@ export type {
   RevealedValue,
   SecretView,
   SecretWriteRequest,
+  SettingsView,
+  TerminalSession,
+  ToolInfo,
+  ToolsReport,
   Resources,
   SearchView,
   TagView,
 } from "../../bindings/github.com/iheb-amiri/kupi/internal/bridge";
 export type { DiskUsage } from "../../bindings/github.com/iheb-amiri/kupi/internal/engine";
+export type { PodSummary, PodsResult } from "../../bindings/github.com/iheb-amiri/kupi/internal/graph";
+export type { Settings, Snippet as SavedSnippet } from "../../bindings/github.com/iheb-amiri/kupi/internal/settings";
+export type { Chunk as TerminalChunk, Shell } from "../../bindings/github.com/iheb-amiri/kupi/internal/terminal";
+export type { Entry as TrustEntry } from "../../bindings/github.com/iheb-amiri/kupi/internal/trust";
 export type { Cluster as LocalCluster, CreateOptions, Tool, Usage as LocalUsage, NodeUsage as LocalNodeUsage } from "../../bindings/github.com/iheb-amiri/kupi/internal/localk8s";
 export type { Status as LaptopStatus } from "../../bindings/github.com/iheb-amiri/kupi/internal/laptop";
 export type { NodeUsage, Overview, PodUsage, Sample, Status as MetricsStatus } from "../../bindings/github.com/iheb-amiri/kupi/internal/metrics";
@@ -64,6 +74,7 @@ export type {
   ContextInfo,
   EventView,
   LogRequest,
+  PlanItemView,
   PlanView,
   ResourceRef,
   ResourceTypeView,
@@ -75,7 +86,7 @@ export type {
 
 export type { Changed, LogBatch, LogLine, ShellChunk } from "../../bindings/github.com/iheb-amiri/kupi/internal/live";
 
-export { KupiChanged, KupiForwards, KupiLogs, KupiPull, KupiShell } from "../../bindings/events";
+export { KupiChanged, KupiForwards, KupiLogs, KupiPull, KupiShell, KupiTerminal } from "../../bindings/events";
 
 /** Turns a rejected backend call into a readable sentence. */
 export function errorMessage(err: unknown): string {

@@ -1,43 +1,79 @@
 @import "tailwindcss";
 
-/* Design tokens. Dark is the default; light follows the OS setting. */
+/*
+ * Design tokens. The palette comes from Kupi's logo: a deep navy K and a
+ * cyan arrow. Dark is the default; "system" follows the OS, and Settings
+ * can force either theme with data-theme on <html>.
+ */
 :root {
-  --kupi-bg: #0f1117;
-  --kupi-panel: #161a22;
-  --kupi-panel-2: #1d222c;
-  --kupi-line: #2a3140;
-  --kupi-fg: #e6e9ef;
-  --kupi-muted: #9aa3b2;
-  --kupi-accent: #5b8def;
+  --kupi-bg: #0b1020;
+  --kupi-panel: #111830;
+  --kupi-panel-2: #18213d;
+  --kupi-line: #263254;
+  --kupi-fg: #e7ebf6;
+  --kupi-muted: #95a1bf;
+  --kupi-accent: #5580ff;
   --kupi-accent-fg: #ffffff;
-  --kupi-good: #3ccf91;
-  --kupi-warn: #f2b84b;
-  --kupi-bad: #f06a6a;
-  --kupi-local: #3ccf91;
-  --kupi-dev: #5bb8f0;
-  --kupi-staging: #f2b84b;
-  --kupi-production: #f06a6a;
+  --kupi-accent-2: #22c3e6;
+  --kupi-good: #34d399;
+  --kupi-warn: #f5b84a;
+  --kupi-bad: #f7687a;
+  --kupi-local: #34d399;
+  --kupi-dev: #38bdf8;
+  --kupi-staging: #f5b84a;
+  --kupi-production: #f7687a;
+  --kupi-logo-k: #e8edff;
+  --kupi-logo-arrow: #22c3e6;
+  --kupi-glow: rgba(85, 128, 255, 0.1);
   color-scheme: dark;
 }
 
 @media (prefers-color-scheme: light) {
-  :root {
-    --kupi-bg: #f6f7f9;
+  :root:not([data-theme="dark"]) {
+    --kupi-bg: #f4f6fb;
     --kupi-panel: #ffffff;
-    --kupi-panel-2: #f0f2f5;
-    --kupi-line: #dde1e8;
-    --kupi-fg: #1a1f2b;
-    --kupi-muted: #5d6677;
-    --kupi-accent: #2f6fe0;
-    --kupi-good: #13945f;
+    --kupi-panel-2: #eef1f8;
+    --kupi-line: #dce2ef;
+    --kupi-fg: #131a33;
+    --kupi-muted: #5a6586;
+    --kupi-accent: #2b44b8;
+    --kupi-accent-fg: #ffffff;
+    --kupi-accent-2: #0ea5c6;
+    --kupi-good: #0f8f5f;
     --kupi-warn: #a86b00;
-    --kupi-bad: #c73636;
-    --kupi-local: #13945f;
-    --kupi-dev: #1f7fb8;
+    --kupi-bad: #c8324a;
+    --kupi-local: #0f8f5f;
+    --kupi-dev: #0b7fb5;
     --kupi-staging: #a86b00;
-    --kupi-production: #c73636;
+    --kupi-production: #c8324a;
+    --kupi-logo-k: #1f2e7a;
+    --kupi-logo-arrow: #1ebde0;
+    --kupi-glow: rgba(43, 68, 184, 0.07);
     color-scheme: light;
   }
+}
+
+:root[data-theme="light"] {
+  --kupi-bg: #f4f6fb;
+  --kupi-panel: #ffffff;
+  --kupi-panel-2: #eef1f8;
+  --kupi-line: #dce2ef;
+  --kupi-fg: #131a33;
+  --kupi-muted: #5a6586;
+  --kupi-accent: #2b44b8;
+  --kupi-accent-fg: #ffffff;
+  --kupi-accent-2: #0ea5c6;
+  --kupi-good: #0f8f5f;
+  --kupi-warn: #a86b00;
+  --kupi-bad: #c8324a;
+  --kupi-local: #0f8f5f;
+  --kupi-dev: #0b7fb5;
+  --kupi-staging: #a86b00;
+  --kupi-production: #c8324a;
+  --kupi-logo-k: #1f2e7a;
+  --kupi-logo-arrow: #1ebde0;
+  --kupi-glow: rgba(43, 68, 184, 0.07);
+  color-scheme: light;
 }
 
 @theme inline {
@@ -49,6 +85,7 @@
   --color-muted: var(--kupi-muted);
   --color-accent: var(--kupi-accent);
   --color-accent-fg: var(--kupi-accent-fg);
+  --color-accent-2: var(--kupi-accent-2);
   --color-good: var(--kupi-good);
   --color-warn: var(--kupi-warn);
   --color-bad: var(--kupi-bad);
@@ -56,8 +93,8 @@
   --color-dev: var(--kupi-dev);
   --color-staging: var(--kupi-staging);
   --color-production: var(--kupi-production);
-  --font-sans: system-ui, -apple-system, "Segoe UI", Ubuntu, Cantarell, "Noto Sans", sans-serif;
-  --font-mono: ui-monospace, "Cascadia Code", "JetBrains Mono", "Ubuntu Mono", Consolas, monospace;
+  --font-sans: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, Ubuntu, Cantarell, "Noto Sans", sans-serif;
+  --font-mono: ui-monospace, "Cascadia Mono", "Cascadia Code", "JetBrains Mono", "Ubuntu Mono", Consolas, monospace;
 }
 
 html,
@@ -68,7 +105,10 @@ body,
 
 body {
   margin: 0;
-  background: var(--kupi-bg);
+  /* A faint glow of the accent at the top right keeps large pages from looking flat. */
+  background:
+    radial-gradient(1100px 520px at 100% -8%, var(--kupi-glow), transparent 70%),
+    var(--kupi-bg);
   color: var(--kupi-fg);
   font-family: var(--font-sans);
   font-size: 14px;
@@ -80,7 +120,68 @@ body {
   outline-offset: 2px;
 }
 
+::selection {
+  background: color-mix(in srgb, var(--kupi-accent) 35%, transparent);
+}
+
+/* Slim scrollbars that match the theme. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--kupi-line) transparent;
+}
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--kupi-line);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--kupi-muted);
+  background-clip: content-box;
+}
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
 /* xterm.js sizes itself inside its host. */
 .xterm {
   height: 100%;
+}
+.kupi-terminal .xterm-viewport {
+  background-color: transparent !important;
+}
+
+/* Range sliders in the form: a thin track in the accent color. */
+.kupi-range {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--kupi-line);
+  accent-color: var(--kupi-accent);
+  cursor: pointer;
+}
+.kupi-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  background: var(--kupi-accent);
+  border: 2px solid var(--kupi-panel);
+  box-shadow: 0 0 0 1px var(--kupi-accent);
+}
+.kupi-range::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  background: var(--kupi-accent);
+  border: 2px solid var(--kupi-panel);
 }

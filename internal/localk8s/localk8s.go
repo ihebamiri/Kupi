@@ -17,6 +17,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/iheb-amiri/kupi/internal/procutil"
 )
 
 var (
@@ -68,7 +70,7 @@ func run(ctx context.Context, tool string, args ...string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("%s isn't installed", tool)
 	}
-	cmd := exec.CommandContext(ctx, path, args...)
+	cmd := procutil.Command(ctx, path, args...)
 	var out bytes.Buffer
 	cmd.Stdout = &limited{w: &out}
 	cmd.Stderr = &limited{w: &out}
@@ -289,8 +291,8 @@ func importInto(ctx context.Context, node, image, platform string) error {
 	if err != nil {
 		return errors.New("the docker CLI isn't installed")
 	}
-	save := exec.CommandContext(ctx, docker, "save", "--platform", platform, "--", image)
-	imp := exec.CommandContext(ctx, docker, "exec", "-i", node, "ctr", "-n", "k8s.io", "images", "import", "--platform", platform, "-")
+	save := procutil.Command(ctx, docker, "save", "--platform", platform, "--", image)
+	imp := procutil.Command(ctx, docker, "exec", "-i", node, "ctr", "-n", "k8s.io", "images", "import", "--platform", platform, "-")
 	pipe, err := save.StdoutPipe()
 	if err != nil {
 		return err

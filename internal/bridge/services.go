@@ -14,6 +14,7 @@ import (
 	"regexp"
 	"runtime"
 	"strings"
+	"sync"
 	"time"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -33,6 +34,8 @@ import (
 	"github.com/iheb-amiri/kupi/internal/localk8s"
 	"github.com/iheb-amiri/kupi/internal/metrics"
 	"github.com/iheb-amiri/kupi/internal/profile"
+	"github.com/iheb-amiri/kupi/internal/settings"
+	"github.com/iheb-amiri/kupi/internal/terminal"
 	"github.com/iheb-amiri/kupi/internal/trust"
 	"github.com/iheb-amiri/kupi/internal/validate"
 	"github.com/iheb-amiri/kupi/internal/vault"
@@ -62,6 +65,60 @@ type Deps struct {
 	// Laptop stops idle local clusters and wakes them on connect.
 	Laptop    *laptop.Manager
 	ConfigDir string
+	// Settings are the user's preferences.
+	Settings *settings.Store
+	// Terminals runs the integrated terminal's shells.
+	Terminals *terminal.Manager
+	// Native asks the user in a native OS dialog, which page scripts can't
+	// answer. It reports false when no dialog could be shown.
+	Native *Native
+}
+
+// Native holds functions that need the running Wails app, set once it starts.
+type Native struct {
+	mu      sync.RWMutex
+	confirm func(title, message, accept string) bool
+	openURL func(url string) error
+}
+
+// Set installs the native functions.
+func (n *Native) Set(confirm func(title, message, accept string) bool, openURL func(url string) error) {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	n.confirm, n.openURL = confirm, openURL
+}
+
+// Confirm asks a yes/no question in a native dialog.
+func (n *Native) Confirm(title, message, accept string) bool {
+	if n == nil {
+		return false
+	}
+	n.mu.RLock()
+	f := n.confirm
+	n.mu.RUnlock()
+	return f != nil && f(title, message, accept)
+}
+
+// OpenURL opens a web page in the default browser.
+func (n *Native) OpenURL(url string) error {
+	if n == nil {
+		return fmt.Errorf("can't open links yet")
+	}
+	n.mu.RLock()
+	f := n.openURL
+	n.mu.RUnlock()
+	if f == nil {
+		return fmt.Errorf("can't open links yet")
+	}
+	return f(url)
+}
+
+// clipboardTTL is how long a copied secret stays on the clipboard.
+func (d Deps) clipboardTTL() time.Duration {
+	if d.Settings == nil {
+		return 30 * time.Second
+	}
+	return time.Duration(d.Settings.Get().ClipboardClearSeconds) * time.Second
 }
 
 // stopContext ends every stream, sampler and forward of a context.
@@ -283,7 +340,9 @@ type GuardService struct{ d Deps }
 // NewGuardService returns the guard service.
 func NewGuardService(d Deps) *GuardService { return &GuardService{d: d} }
 
-// PrepareApply previews applying a single-object YAML or JSON manifest.
+// PrepareApply previews applying a YAML or JSON manifest. A manifest with
+// several objects (separated by ---, or a v1 List) is previewed object by
+// object and applied together.
 func (s *GuardService) PrepareApply(ctx context.Context, contextName, manifest string, forceConflicts bool) (PlanView, error) {
 	if err := validate.ContextName(contextName); err != nil {
 		return PlanView{}, err
@@ -291,11 +350,16 @@ func (s *GuardService) PrepareApply(ctx context.Context, contextName, manifest s
 	if err := validate.Manifest(manifest); err != nil {
 		return PlanView{}, err
 	}
-	obj, err := parseSingleObject(manifest)
+	objs, err := parseObjects(manifest, guard.MaxBatchObjects)
 	if err != nil {
 		return PlanView{}, err
 	}
-	plan, err := s.d.Guard.PrepareApply(ctx, guard.ApplyRequest{Context: contextName, Object: obj, ForceConflicts: forceConflicts})
+	var plan *guard.Plan
+	if len(objs) == 1 {
+		plan, err = s.d.Guard.PrepareApply(ctx, guard.ApplyRequest{Context: contextName, Object: objs[0], ForceConflicts: forceConflicts})
+	} else {
+		plan, err = s.d.Guard.PrepareApplyBatch(ctx, guard.ApplyBatchRequest{Context: contextName, Objects: objs, ForceConflicts: forceConflicts})
+	}
 	if err != nil {
 		return PlanView{}, err
 	}
@@ -419,37 +483,82 @@ func targetRequest(contextName string, ref ResourceRef) (guard.TargetRequest, er
 
 // parseSingleObject decodes exactly one object from YAML or JSON.
 func parseSingleObject(manifest string) (*unstructured.Unstructured, error) {
+	objs, err := parseObjects(manifest, 1)
+	if err != nil {
+		return nil, err
+	}
+	return objs[0], nil
+}
+
+// parseObjects decodes up to limit objects from YAML or JSON. Documents are
+// separated by ---; a List (kind: List, or any *List) is expanded into its
+// items. Empty documents and comments are skipped.
+func parseObjects(manifest string, limit int) ([]*unstructured.Unstructured, error) {
 	dec := utilyaml.NewYAMLOrJSONDecoder(bytes.NewReader([]byte(manifest)), 4096)
-	var first map[string]interface{}
-	for {
+	var out []*unstructured.Unstructured
+	add := func(doc map[string]interface{}, n int) error {
+		if len(out) >= limit {
+			if limit == 1 {
+				return fmt.Errorf("this manifest holds more than one object; the form edits one at a time, so use the YAML view")
+			}
+			return fmt.Errorf("the manifest holds more than %d objects", limit)
+		}
+		if _, ok := doc["kind"].(string); !ok {
+			return fmt.Errorf("object %d has no kind", n)
+		}
+		out = append(out, &unstructured.Unstructured{Object: doc})
+		return nil
+	}
+	for n := 1; ; n++ {
 		var doc map[string]interface{}
 		if err := dec.Decode(&doc); err != nil {
 			if errors.Is(err, io.EOF) {
 				break
 			}
-			return nil, fmt.Errorf("parse manifest: %w", err)
+			return nil, fmt.Errorf("parse manifest (document %d): %w", n, err)
 		}
 		if len(doc) == 0 {
 			continue
 		}
-		if first != nil {
-			return nil, fmt.Errorf("the manifest holds more than one object; apply them one at a time")
+		kind, _ := doc["kind"].(string)
+		items, isList := doc["items"].([]interface{})
+		if isList && strings.HasSuffix(kind, "List") {
+			for _, item := range items {
+				m, ok := item.(map[string]interface{})
+				if !ok {
+					return nil, fmt.Errorf("document %d: list items must be objects", n)
+				}
+				if err := add(m, n); err != nil {
+					return nil, err
+				}
+			}
+			continue
 		}
-		first = doc
+		if err := add(doc, n); err != nil {
+			return nil, err
+		}
 	}
-	if first == nil {
+	if len(out) == 0 {
 		return nil, fmt.Errorf("the manifest is empty")
 	}
-	return &unstructured.Unstructured{Object: first}, nil
+	return out, nil
 }
 
 func planView(p *guard.Plan) PlanView {
+	items := make([]PlanItemView, 0, len(p.Items))
+	for _, it := range p.Items {
+		items = append(items, PlanItemView{
+			APIVersion: it.APIVersion, Kind: it.Kind, Namespace: it.Namespace, Name: it.Name,
+			State: it.State, Note: it.Note, Diff: it.Diff, Summary: nonNil(it.Summary),
+			Warnings: nonNil(it.Warnings), Conflicts: nonNil(it.Conflicts),
+		})
+	}
 	return PlanView{
 		ID: p.ID, Context: p.Context, Profile: string(p.Profile), Action: string(p.Action),
 		APIVersion: p.APIVersion, Kind: p.Kind, Namespace: p.Namespace, Name: p.Name,
 		Diff: p.Diff, Summary: nonNil(p.Summary), Warnings: nonNil(p.Warnings), Conflicts: nonNil(p.Conflicts),
 		Allowed: p.Allowed, DeniedReason: p.DeniedReason, NeedsReason: p.NeedsReason,
-		ConfirmName: p.ConfirmName, ExpiresAt: p.ExpiresAt.Format(time.RFC3339),
+		ConfirmName: p.ConfirmName, ExpiresAt: p.ExpiresAt.Format(time.RFC3339), Items: items,
 	}
 }
 
@@ -474,4 +583,17 @@ func explainConnectError(server string, err error) error {
 	}
 	return fmt.Errorf("%w. This cluster's address is %s, and host.docker.internal often points to an old address on Windows. "+
 		"Change the server in your kubeconfig to https://127.0.0.1:%s, or create k3d clusters with --api-port 127.0.0.1:<port> (Kupi does this for clusters it creates)", err, server, u.Port())
+}
+
+// OpenURL opens an http(s) link in the default browser, for example a link
+// clicked in the terminal. The UI asks the user first.
+func (s *AppService) OpenURL(link string) error {
+	if len(link) > 2048 {
+		return fmt.Errorf("the link is too long")
+	}
+	u, err := url.Parse(link)
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+		return fmt.Errorf("only http and https links can be opened")
+	}
+	return s.d.Native.OpenURL(u.String())
 }

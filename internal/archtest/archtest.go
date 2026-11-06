@@ -36,6 +36,14 @@ var shells = map[string]bool{
 	"cmd": true, "cmd.exe": true, "powershell": true, "powershell.exe": true, "pwsh": true, "pwsh.exe": true,
 }
 
+const terminalImport = "github.com/iheb-amiri/kupi/internal/terminal"
+
+// commandFlags make a shell run a command instead of being interactive.
+var commandFlags = map[string]bool{
+	"-c": true, "/c": true, "/k": true, "/r": true, "-command": true, "-encodedcommand": true,
+	"-file": true, "-ec": true, "--command": true,
+}
+
 // CheckGo returns rule violations in one non-test Go file. rel is the file's
 // path relative to the repository root, with forward slashes.
 func CheckGo(rel string, src []byte) []string {
@@ -47,12 +55,16 @@ func CheckGo(rel string, src []byte) []string {
 	var problems []string
 	inKube := strings.HasPrefix(rel, "internal/kube/")
 	inGuard := strings.HasPrefix(rel, "internal/guard/")
+	inTerminal := strings.HasPrefix(rel, "internal/terminal/")
 
 	execNames := map[string]bool{}
 	for _, imp := range file.Imports {
 		path, _ := strconv.Unquote(imp.Path.Value)
 		if !inKube && isClientImport(path) {
 			problems = append(problems, fmt.Sprintf("%s: imports %s; only internal/kube may talk to the API server directly", rel, path))
+		}
+		if path == terminalImport && !strings.HasPrefix(rel, "internal/bridge/") && rel != "main.go" {
+			problems = append(problems, fmt.Sprintf("%s: imports %s; only internal/bridge may open terminals", rel, path))
 		}
 		if path == "os/exec" {
 			name := "exec"
@@ -64,6 +76,13 @@ func CheckGo(rel string, src []byte) []string {
 	}
 
 	ast.Inspect(file, func(n ast.Node) bool {
+		// The terminal starts interactive shells only: never with a command.
+		if lit, ok := n.(*ast.BasicLit); ok && inTerminal && lit.Kind == token.STRING {
+			s, _ := strconv.Unquote(lit.Value)
+			if commandFlags[strings.ToLower(s)] {
+				problems = append(problems, fmt.Sprintf("%s:%d: the flag %q makes a shell run a command; the terminal only starts interactive shells", rel, fset.Position(lit.Pos()).Line, s))
+			}
+		}
 		call, ok := n.(*ast.CallExpr)
 		if !ok {
 			return true

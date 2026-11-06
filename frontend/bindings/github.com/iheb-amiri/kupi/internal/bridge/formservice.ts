@@ -15,10 +15,19 @@ import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wails
 import * as $models from "./models.js";
 
 /**
- * FromYAML parses one YAML object into JSON.
+ * FromYAML parses a YAML manifest. One object comes back as JSON for the
+ * form; several come back as a list of names.
  */
 export function FromYAML(manifest: string): $CancellablePromise<$models.ParseResult> {
     return $Call.ByID(4112698723, manifest);
+}
+
+/**
+ * Keys returns the key names (never the values) of a ConfigMap or Secret,
+ * for fields such as configMapKeyRef.key and secretKeyRef.key.
+ */
+export function Keys(contextName: string, resource: string, $namespace: string, name: string): $CancellablePromise<string[] | null> {
+    return $Call.ByID(940447480, contextName, resource, $namespace, name);
 }
 
 /**
@@ -44,6 +53,14 @@ export function Object(contextName: string, ref: $models.ResourceRef): $Cancella
  */
 export function Schema(contextName: string, group: string, version: string, kind: string): $CancellablePromise<string> {
     return $Call.ByID(1857376615, contextName, group, version, kind);
+}
+
+/**
+ * Suggest returns the names of existing objects of one type, for the form's
+ * drop-down lists. Namespace is ignored for cluster-wide types.
+ */
+export function Suggest(contextName: string, resource: string, $namespace: string): $CancellablePromise<string[] | null> {
+    return $Call.ByID(2100893718, contextName, resource, $namespace);
 }
 
 /**

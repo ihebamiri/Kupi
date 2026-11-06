@@ -20,3 +20,11 @@ import * as $models from "./models.js";
 export function Info(): $CancellablePromise<$models.AppInfo> {
     return $Call.ByID(1032674295);
 }
+
+/**
+ * OpenURL opens an http(s) link in the default browser, for example a link
+ * clicked in the terminal. The UI asks the user first.
+ */
+export function OpenURL(link: string): $CancellablePromise<void> {
+    return $Call.ByID(2416998216, link);
+}

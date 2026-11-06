@@ -129,3 +129,25 @@ func repoRoot(t *testing.T) string {
 		dir = parent
 	}
 }
+
+func TestTerminalRules(t *testing.T) {
+	src := `package terminal
+
+var args = []string{"-NoLogo", "-Command"}
+var bash = []string{"--login", "-c"}
+`
+	problems := CheckGo("internal/terminal/x.go", []byte(src))
+	if len(problems) != 2 || !strings.Contains(problems[0], `"-Command"`) || !strings.Contains(problems[1], `"-c"`) {
+		t.Errorf("terminal command flags: %v", problems)
+	}
+	if p := CheckGo("internal/feature/x.go", []byte(src)); len(p) != 0 {
+		t.Errorf("the flag rule is only for the terminal package: %v", p)
+	}
+	imp := "package x\nimport _ \"github.com/iheb-amiri/kupi/internal/terminal\"\n"
+	if p := CheckGo("internal/feature/x.go", []byte(imp)); len(p) != 1 || !strings.Contains(p[0], "only internal/bridge") {
+		t.Errorf("terminal import: %v", p)
+	}
+	if p := CheckGo("internal/bridge/terminal.go", []byte(imp)); len(p) != 0 {
+		t.Errorf("bridge may import the terminal: %v", p)
+	}
+}

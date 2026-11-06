@@ -20,3 +20,10 @@ import * as graph$0 from "../graph/models.js";
 export function Graph(contextName: string, $namespace: string): $CancellablePromise<graph$0.Graph | null> {
     return $Call.ByID(244861890, contextName, $namespace);
 }
+
+/**
+ * Pods returns the pods behind a workload or Service on the canvas.
+ */
+export function Pods(contextName: string, kind: string, $namespace: string, name: string): $CancellablePromise<graph$0.PodsResult | null> {
+    return $Call.ByID(689837330, contextName, kind, $namespace, name);
+}

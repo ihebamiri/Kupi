@@ -93,7 +93,7 @@ func (s *VaultService) CopyValue(item, key string) error {
 	if err != nil {
 		return err
 	}
-	return s.d.Clipboard.Copy(v, clipboardClearAfter)
+	return s.d.Clipboard.Copy(v, s.d.clipboardTTL())
 }
 
 // PrepareSecret previews creating a Kubernetes Secret, or adding to one,

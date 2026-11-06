@@ -93,6 +93,7 @@ docs\USER_GUIDE.md
 docs\TESTING-WINDOWS.md        (this file)
 docs\testdata\demo-workloads.yaml
 docs\testdata\gitops-fixtures.yaml
+docs\testdata\multi-object.yaml
 docs\testdata\charts\demo-web\…
 ```
 
@@ -185,7 +186,7 @@ Each step says what to do (**Do**) and what you should see (**Expect**).
 
 ### A. First start and connecting
 
-- [ ] **A1.** Do: look at the window. Expect: a dark window titled "Kupi" with the sidebar on the left and the Clusters page open.
+- [ ] **A1.** Do: look at the window. Expect: a window titled "Kupi" (dark or light, following Windows), the Kupi logo at the top of the sidebar, and the Clusters page open.
 - [ ] **A2.** Do: find `k3d-kupi-test` in the list. Expect: its profile shows **Local**, and the server is `https://127.0.0.1:6550`.
 - [ ] **A3.** Do: press **Connect** on `k3d-kupi-test`. Expect: within a few seconds the context bar shows `k3d-kupi-test`, **Local**, `v1.35.5+k3s1`, "All namespaces" and **Editing on**. The sidebar gains Overview, Map, Incident, History, Helm, GitOps and Secrets, and resource types appear below.
 - [ ] **A4.** Do: press **Ctrl+K**, type `pods`, press Enter. Expect: the Pods list opens.
@@ -218,6 +219,12 @@ Each step says what to do (**Do**) and what you should see (**Expect**).
 - [ ] **D2.** Do: set the name `hello`, namespace `kupi-demo`, image `nginxinc/nginx-unprivileged:1.27-alpine`. Expect: the YAML updates as you type, and switching to YAML and back keeps your values.
 - [ ] **D3.** Do: **Preview change**, then apply. Expect: the review shows a new object (all lines added); after applying, `hello` appears in Deployments and its pod becomes Ready.
 - [ ] **D4.** Do: open `hello` → YAML → **Edit with form or YAML**, change Copies running to 2, preview. Expect: the diff shows only `replicas: 1 → 2`.
+- [ ] **D5.** Do: Create or edit → Start from **Deployment** → click in **Namespace**. Expect: a list of the cluster's namespaces (`default`, `kupi-demo`, `kube-system`…); you can pick one or keep typing your own.
+- [ ] **D6.** Do: in the form, look at **Requests** and **Limits**. Expect: CPU and Memory each have a slider and a box with the exact value, and a reading such as "0.1 CPUs" or "128 MiB". Drag the memory **limit** slider below the memory request. Expect: a red line saying the limit is below the request.
+- [ ] **D7.** Do: **All fields** → search `configMapRef` → open envFrom → Add item → configMapRef → click **name**. Expect: the ConfigMaps of the chosen namespace are suggested.
+- [ ] **D8.** Do: **Open file** → pick `docs\testdata\multi-object.yaml` from the Kupi folder. Expect: the YAML view shows it, the file name appears in the title, and a note says "This manifest holds 4 objects: Service hello, Deployment hello, ConfigMap hello-settings, Namespace kupi-multi".
+- [ ] **D9.** Do: **Preview change**. Expect: "Review: 4 objects", listed in this order: Namespace (Create), ConfigMap, Service, Deployment (each "Checked when applied", because their namespace is new). Click one to see its diff. Apply. Expect: "Applied 4 objects", and `kubectl --context k3d-kupi-test -n kupi-multi get all` shows the Deployment with 2 pods and the Service.
+- [ ] **D10.** Do: paste a manifest with two `---`-separated objects of your own (for example a ConfigMap and a Secret) into the YAML view and preview it. Expect: both are listed. Cancel.
 
 ### E. Overview and Map
 
@@ -225,6 +232,9 @@ Each step says what to do (**Do**) and what you should see (**Expect**).
 - [ ] **E2.** Do: sidebar → Map (namespace `kupi-demo`). Expect: boxes for `ticker` (2/2), `demo-web`, `hello` and the failing `crasher` pod; `demo-web` is linked to the ConfigMap `demo-web-config` and the Secret `demo-web-auth`.
 - [ ] **E3.** Do: switch the overlay to **Security**. Expect: `crasher` flagged for no memory limit and possibly running as root; `ticker` flagged as possibly running as root; `demo-web` and `hello` unflagged (they run as non-root with limits).
 - [ ] **E4.** Do: click `demo-web-config`. Expect: it and `demo-web` are highlighted, and the panel says a change affects `demo-web`.
+- [ ] **E5.** Do: click the `ticker` Deployment. Expect: the map moves so that `ticker` and two small pod cards under it are in view (each with its name, "Running · 1/1"), and a **Pods** list above the detail panel shows both with status, ready, restarts, node and age.
+- [ ] **E6.** Do: click one of the pod cards. Expect: the panel shows that pod, with Logs, Shell, Events and Metrics tabs, and **← Back to Deployment ticker** returns to the Deployment.
+- [ ] **E7.** Do: click the Service `demo-web`. Expect: the pods it sends traffic to fan out under it.
 
 ### F. Port forwards
 
@@ -304,11 +314,45 @@ Each step says what to do (**Do**) and what you should see (**Expect**).
 - [ ] **M5.** Do: Clusters → **Connect** `k3d-kupi-test`. Expect: it takes longer (the cluster starts), then connects. Set Stop when idle back to **Never**.
 - [ ] **M6.** Do: **New cluster**, name `scratch`, 0 agents → create; then delete it (type its name). Expect: it appears Running, then disappears. Your current kubectl context didn't change (`kubectl config current-context` shows the same as before).
 
-### N. Audit log and closing
+### N. Settings
 
-- [ ] **N1.** Do: sidebar → Audit log. Expect: your scales, edits, Secret reveals and copies, shell, Helm upgrade and rollback, GitOps suspend, laptop caps and so on, newest first.
-- [ ] **N2.** Do: **Verify**. Expect: the chain is reported intact.
-- [ ] **N3.** Do: copy a Secret value (G3), then close Kupi within 30 seconds and paste in Notepad. Expect: nothing is pasted; Kupi cleared it on exit.
+- [ ] **N1.** Do: **Settings** (bottom of the sidebar). Expect: sections Appearance, Logs, Map, Security and privacy, Terminal, Clusters and credentials, About (with the logo and the settings folder).
+- [ ] **N2.** Do: Theme → **Light**, then **Dark**, then **System**. Expect: the whole window switches at once.
+- [ ] **N3.** Do: Interface size → **125%**, then back to **100%**. Expect: everything gets bigger, then normal.
+- [ ] **N4.** Do: Clear copied secrets after → **10 seconds**. Copy a Secret value (G3), paste in Notepad after 15 seconds. Expect: nothing is pasted. Set it back to 30 seconds.
+- [ ] **N5.** Do: Map → Refresh every → **5 seconds**, open the Map. Expect: the header says "refreshes every 5 s".
+- [ ] **N6.** Do: open the audit log. Expect: "settings-changed" entries for the clipboard change.
+
+### O. Terminal
+
+- [ ] **O1.** Do: sidebar → **Terminal** (or press **Ctrl+`**). Expect: an explanation, a warning that commands there skip Kupi's preview and audit log, and **Turn on the terminal…**.
+- [ ] **O2.** Do: **Turn on the terminal…**. Expect: a **Windows dialog** (not a Kupi one) asking to turn it on, with **Cancel** as the default. Press Cancel. Expect: "The terminal stays off". Try again and press **Turn on the terminal**. Expect: a PowerShell prompt appears.
+- [ ] **O3.** Do: look under the tabs. Expect: "kubectl and helm here use k3d-kupi-test · namespace kupi-demo" (or the namespace you chose) and a **Local** badge.
+- [ ] **O4.** Do: type `kubectl get pods` and Enter. Expect: the pods of that namespace, without typing `-n`. Then `kubectl config current-context`. Expect: `k3d-kupi-test`.
+- [ ] **O5.** Do: type `kubectl config set-context --current --namespace=kube-system`, then `kubectl get pods`. Expect: the kube-system pods. Then open a normal PowerShell window (outside Kupi) and run `kubectl config view --minify`. Expect: no `namespace: kube-system`; your kubeconfig wasn't changed.
+- [ ] **O6.** Do: copy these two lines in Notepad, then paste in the terminal with Ctrl+V:
+
+  ```
+  kubectl get ns
+  kubectl get nodes
+  ```
+
+  Expect: a "Paste and run?" dialog showing both lines. Press **Paste as one line, don't run**. Expect: `kubectl get ns ; kubectl get nodes` waits at the prompt; press Enter to run it.
+- [ ] **O7.** Do: the lightning icon (**Snippets**) → "Recent events, newest last". Expect: the command is typed at the prompt but doesn't run until you press Enter.
+- [ ] **O8.** Do: the wrench icon (**Tools**). Expect: kubectl, helm, docker and k3d with their versions, the cluster version, and no version warning.
+- [ ] **O9.** Do: **Ctrl+Shift+F**, search `Running`. Expect: matches highlighted; Enter jumps to the next one.
+- [ ] **O10.** Do: **+** (or Ctrl+Shift+T) for a second tab, then go to another page (Clusters) and come back with Ctrl+`. Expect: both tabs are still there with their output.
+- [ ] **O11.** Do: type `exit` in a tab. Expect: "[The shell ended… Press Enter to start a new one.]"; Enter starts a new shell in the same tab.
+- [ ] **O12.** Do: change the cluster's profile to **Production** (C2), reconnect, open a new terminal tab. Expect: a red bar saying commands skip Kupi's preview and audit log. Paste `kubectl delete pod crasher -n kupi-demo` (one line). Expect: the paste dialog shows it in red as destructive. Press **Cancel**. Set the profile back to Local.
+- [ ] **O13.** Do: Settings → Terminal → **Turn off**. Expect: the terminal tabs close; the Terminal page shows the explanation again.
+- [ ] **O14.** Do: Settings → Snippets → **Add**: name `My pods`, command `kubectl get pods -o wide` → Save. Turn the terminal on again and open Snippets. Expect: "My snippets" lists it first.
+
+### P. Audit log and closing
+
+- [ ] **P1.** Do: **Audit** (bottom of the sidebar). Expect: your scales, edits, the four objects of D9 as separate entries, Secret reveals and copies, shell, Helm upgrade and rollback, GitOps suspend, laptop caps, terminal-enabled, terminal-opened and terminal-disabled, newest first.
+- [ ] **P2.** Do: **Verify**. Expect: the chain is reported intact.
+- [ ] **P3.** Do: copy a Secret value (G3), then close Kupi within 30 seconds and paste in Notepad. Expect: nothing is pasted; Kupi cleared it on exit.
+- [ ] **P4.** Do: look at Kupi in the taskbar and in File Explorer (`kupi.exe`). Expect: the new icon, a navy tile with a white K and a cyan arrow.
 
 ---
 

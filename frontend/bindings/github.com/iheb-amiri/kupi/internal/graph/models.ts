@@ -43,3 +43,37 @@ export interface Node {
     "restarts": number;
     "flags": string[] | null;
 }
+
+/**
+ * PodSummary is one pod of a workload or Service, for the canvas.
+ */
+export interface PodSummary {
+    "name": string;
+    "namespace": string;
+    "uid": string;
+    "created": string;
+
+    /**
+     * Status reads like kubectl's STATUS column: Running, CrashLoopBackOff…
+     */
+    "status": string;
+    "ready": string;
+    "restarts": number;
+    "node": string;
+    "ip": string;
+    "health": string;
+    "labels": { [_ in string]?: string } | null;
+}
+
+/**
+ * PodsResult lists the pods behind one object.
+ */
+export interface PodsResult {
+    "pods": PodSummary[] | null;
+
+    /**
+     * Note explains an empty list, for example a Service with no selector.
+     */
+    "note": string;
+    "truncated": boolean;
+}

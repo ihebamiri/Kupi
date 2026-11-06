@@ -13,6 +13,7 @@ Scope of the current build: v0.1 + the v0.2 Observe canvas and v0.2 features, pe
 - [x] 7. Secrets and local vault.
 - [x] 8. Helm, Argo CD / Flux awareness, resource history, incident view, laptop mode.
 - [x] 9. Final checks before maintainer testing.
+- [x] 10. Maintainer feedback, round 1: multi-object manifests and file upload, form suggestions and sliders, pods on the map, Settings, the integrated terminal, logo and visual polish.
 
 ## Milestone 1 status
 
@@ -174,6 +175,21 @@ Final checks before maintainer testing, done:
 - Docs: `docs/TESTING.md` is the hands-on checklist for maintainer testing; the README lists what Kupi does and how to run the tests.
 - Local builds of everything at once can run out of memory with the Helm SDK; `-p 2` avoids it.
 
+## Milestone 10 status
+
+Requested by the maintainer after the first round of testing on Windows. Done and verified in a browser against k3d (and the terminal against real shells):
+
+- **Multi-object manifests.** `guard.PrepareApplyBatch`: Helm install order, per-object permission check, dry run and diff, one confirmation, one audit entry per object, resourceVersion preconditions. Objects in a namespace or of a CRD type the manifest creates are "checked when applied", and Commit waits for a new CRD to be served. The first failure stops the run. Verified: a Service, Deployment, ConfigMap and their new Namespace applied in one go.
+- **Open file:** read in the web view and sent as text (1 MB max). Drag and drop isn't wired: Wails blocks external file drops unless `EnableFileDrop` is on, which would hand file paths to Go.
+- **Form suggestions:** comboboxes for fields that name another object (16 types, plus ConfigMap and Secret key names, never values), and a warning for names that don't exist yet. **Sliders** for CPU, memory, storage and replicas, plus a "limit below request" check.
+- **Pods on the map:** `graph.PodsOf` follows ownership (Deployment → ReplicaSet → Pod, CronJob → Job → Pod) or a Service's selector. Pod cards fan out under the selected node, the map pans to them, a list sits in the side panel, and a click opens the pod.
+- **Settings page** backed by `internal/settings` (clamped ranges, audited safety changes). The clipboard timeout, vault auto-lock and history retention are now configurable; theme (System, Dark, Light) and interface size are applied live.
+- **Integrated terminal** (`internal/terminal`, ConPTY and `/dev/ptmx`, no new Go dependency). It's off until confirmed in a native dialog. Only detected shells start, with fixed arguments, enforced by `archtest`. kubectl follows Kupi's cluster and namespace through a credential-free kubeconfig overlay. Tabs, paste check, snippets, search, tools and version skew, and links. CLAUDE.md rules 3 and 6 now describe this exception. Verified: Windows PowerShell in ConPTY, `kubectl get pods` scoped to the connected namespace, `kubectl config set-context` inside the tab leaving `~/.kube/config` untouched, the overlay removed on close, audit entries.
+- **Look:** a navy palette from the logo, dark and light themes, the logo in the sidebar and About, a new app icon (`build/appicon.png`, `icon.ico`), slimmer scrollbars, and grouped sidebar sections.
+- New dependencies, approved by the maintainer: `@xterm/addon-search`, `@xterm/addon-web-links`.
+- Fixed in passing: helper programs (k3d, docker) no longer flash a console window on Windows (`internal/procutil`).
+- Not verified yet: the native confirmation dialog in the release build (browser testing used the development-only auto-confirm), the Linux terminal (compiles and vets for Linux; needs a run in WSL2).
+
 ## Environment
 
 - Go 1.27, Wails v3.1.0, client-go v0.37 (supports Kubernetes 1.34 to 1.37), k3d 5.9, Node 22.
@@ -186,3 +202,4 @@ Final checks before maintainer testing, done:
 - 2026-11-05: project generated from the Wails v3 React template; macOS, iOS and Android build files removed.
 - 2026-11-05: milestone 1 foundation implemented and verified.
 - 2026-11-05: milestone 2 core views implemented and verified.
+- 2026-11-06: milestone 10 (maintainer feedback, round 1) implemented and verified.

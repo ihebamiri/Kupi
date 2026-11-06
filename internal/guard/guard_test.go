@@ -38,6 +38,10 @@ type fakeCluster struct {
 	patched     [][]byte
 	execs       []string
 	lastApplyRV string
+	// failName makes a real (not dry-run) apply of this object name fail.
+	failName string
+	// strictNamespaces makes applies into a missing namespace fail.
+	strictNamespaces bool
 }
 
 func newFake(kind profile.Kind) *fakeCluster {
@@ -85,6 +89,15 @@ func (f *fakeCluster) Resolve(gvk schema.GroupVersionKind) (schema.GroupVersionR
 		return deployments, true, nil
 	case "Pod":
 		return podsGVR, true, nil
+	case "Namespace":
+		return namespacesGVR, false, nil
+	case "CustomResourceDefinition":
+		return crdGVR, false, nil
+	case "Widget":
+		// Served only once its CRD exists.
+		if _, ok := f.objects[key(crdGVR, "", "widgets.example.com")]; ok {
+			return widgetsGVR, true, nil
+		}
 	}
 	return schema.GroupVersionResource{}, false, errors.New("unknown kind")
 }
@@ -121,7 +134,18 @@ func (f *fakeCluster) Apply(_ context.Context, gvr schema.GroupVersionResource, 
 	if f.conflict && !opts.Force {
 		return nil, apierrors.NewApplyConflict([]metav1.StatusCause{{Type: metav1.CauseTypeFieldManagerConflict, Message: `conflict with "kubectl": .data.color`}}, "conflict")
 	}
+	if f.failName != "" && obj.GetName() == f.failName && !opts.DryRun {
+		return nil, errors.New("admission webhook said no")
+	}
+	if ns != "" && !opts.DryRun && gvr != namespacesGVR {
+		if _, ok := f.objects[key(namespacesGVR, "", ns)]; !ok && f.strictNamespaces {
+			return nil, apierrors.NewNotFound(namespacesGVR.GroupResource(), ns)
+		}
+	}
 	out := obj.DeepCopy()
+	if gvr == crdGVR {
+		_ = unstructured.SetNestedSlice(out.Object, []interface{}{map[string]interface{}{"type": "Established", "status": "True"}}, "status", "conditions")
+	}
 	if !opts.DryRun {
 		f.applied = append(f.applied, out)
 		f.lastApplyRV = obj.GetResourceVersion()

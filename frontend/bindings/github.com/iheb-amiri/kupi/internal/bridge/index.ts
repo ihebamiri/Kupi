@@ -18,7 +18,9 @@ import * as LogService from "./logservice.js";
 import * as MetricsService from "./metricsservice.js";
 import * as ResourceService from "./resourceservice.js";
 import * as SecretService from "./secretservice.js";
+import * as SettingsService from "./settingsservice.js";
 import * as ShellService from "./shellservice.js";
+import * as TerminalService from "./terminalservice.js";
 import * as VaultService from "./vaultservice.js";
 export {
     AppService,
@@ -38,7 +40,9 @@ export {
     MetricsService,
     ResourceService,
     SecretService,
+    SettingsService,
     ShellService,
+    TerminalService,
     VaultService
 };
 
@@ -61,6 +65,7 @@ export type {
     NodeMetrics,
     OwnerView,
     ParseResult,
+    PlanItemView,
     PlanView,
     PodMetrics,
     PortOption,
@@ -73,9 +78,13 @@ export type {
     SearchView,
     SecretView,
     SecretWriteRequest,
+    SettingsView,
     TableColumn,
     TableRow,
     TableView,
     TagView,
+    TerminalSession,
+    ToolInfo,
+    ToolsReport,
     TypeRef
 } from "./models.js";

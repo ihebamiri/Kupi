@@ -46,6 +46,8 @@ export function CommandPalette() {
           <Command.Item className={item} onSelect={() => run(() => navigate({ page: "clusters" }))}>Clusters</Command.Item>
           <Command.Item className={item} onSelect={() => run(() => navigate({ page: "apply" }))}>Create or edit (form or YAML)</Command.Item>
           <Command.Item className={item} onSelect={() => run(() => navigate({ page: "audit" }))}>Audit log</Command.Item>
+          <Command.Item className={item} onSelect={() => run(() => navigate({ page: "terminal" }))}>Terminal (your shell, kubectl on this cluster)</Command.Item>
+          <Command.Item className={item} onSelect={() => run(() => navigate({ page: "settings" }))}>Settings</Command.Item>
           <Command.Item className={item} onSelect={() => run(() => navigate({ page: "forwards" }))}>Port forwards</Command.Item>
           <Command.Item className={item} onSelect={() => run(() => navigate({ page: "images" }))}>Images (local and Docker Hub)</Command.Item>
           <Command.Item className={item} onSelect={() => run(() => navigate({ page: "local" }))}>Local clusters (k3d)</Command.Item>

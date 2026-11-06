@@ -38,7 +38,8 @@ func (q HistoryQuery) toQuery() (history.Query, error) {
 	if len(q.Kind) > 63 {
 		return history.Query{}, fmt.Errorf("invalid kind")
 	}
-	hours := min(max(q.Hours, 1), int(history.Retention/time.Hour))
+	// The store also stops at its retention; 90 days is the longest it can be.
+	hours := min(max(q.Hours, 1), 90*24)
 	limit := min(max(q.Limit, 1), 2000)
 	return history.Query{Since: time.Now().Add(-time.Duration(hours) * time.Hour), Namespace: q.Namespace, Kind: q.Kind, Name: q.Name, Limit: limit}, nil
 }

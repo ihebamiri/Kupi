@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useSettings } from "../state/settings";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { Copy, Pause, Play } from "lucide-react";
 import { KubectlButton } from "./CopyButton";
@@ -25,8 +26,9 @@ export function LogsView({ contextName, namespace, pod, workload, target }: Logs
   const [container, setContainer] = useState("");
   const [follow, setFollow] = useState(true);
   const [previous, setPrevious] = useState(false);
-  const [timestamps, setTimestamps] = useState(false);
-  const [tail, setTail] = useState(500);
+  const { settings } = useSettings();
+  const [timestamps, setTimestamps] = useState(settings.logTimestamps);
+  const [tail, setTail] = useState(settings.logTailLines);
   const [filter, setFilter] = useState("");
   const [paused, setPaused] = useState(false);
   const [lines, setLines] = useState<LogLine[]>([]);
@@ -141,7 +143,7 @@ export function LogsView({ contextName, namespace, pod, workload, target }: Logs
           </select>
         )}
         <select aria-label="Lines" className="rounded-md border border-line bg-panel-2 px-1.5 py-1" value={tail} onChange={(e) => setTail(Number(e.target.value))}>
-          {[100, 500, 2000, 10000].map((n) => (
+          {[...new Set([100, 500, 1000, 2000, 5000, 10000, tail])].sort((a, b) => a - b).map((n) => (
             <option key={n} value={n}>
               last {n} lines
             </option>

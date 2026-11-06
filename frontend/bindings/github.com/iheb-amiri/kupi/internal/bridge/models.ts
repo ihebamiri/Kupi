@@ -13,6 +13,15 @@ import * as metrics$0 from "../metrics/models.js";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
 import * as secrets$0 from "../secrets/models.js";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
+import * as settings$0 from "../settings/models.js";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
+import * as terminal$0 from "../terminal/models.js";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
+import * as trust$0 from "../trust/models.js";
 
 /**
  * AppInfo describes the running app.
@@ -242,6 +251,28 @@ export interface OwnerView {
 export interface ParseResult {
     "json": string;
     "error": string;
+
+    /**
+     * Objects lists "Kind name" for each object when the manifest holds
+     * several; JSON is then empty because the form edits one at a time.
+     */
+    "objects": string[] | null;
+}
+
+/**
+ * PlanItemView is one object of a multi-object apply.
+ */
+export interface PlanItemView {
+    "apiVersion": string;
+    "kind": string;
+    "namespace": string;
+    "name": string;
+    "state": string;
+    "note": string;
+    "diff": string;
+    "summary": string[] | null;
+    "warnings": string[] | null;
+    "conflicts": string[] | null;
 }
 
 /**
@@ -265,6 +296,11 @@ export interface PlanView {
     "needsReason": boolean;
     "confirmName": string;
     "expiresAt": string;
+
+    /**
+     * Items lists each object when the manifest holds more than one.
+     */
+    "items": PlanItemView[] | null;
 }
 
 /**
@@ -404,6 +440,17 @@ export interface SecretWriteRequest {
 }
 
 /**
+ * SettingsView is the settings plus the facts the Settings page shows.
+ */
+export interface SettingsView {
+    "settings": settings$0.Settings;
+    "configDir": string;
+    "kubeconfigFiles": string[] | null;
+    "shells": terminal$0.Shell[] | null;
+    "trusted": trust$0.Entry[] | null;
+}
+
+/**
  * TableColumn is one column of a server-side table.
  */
 export interface TableColumn {
@@ -444,6 +491,44 @@ export interface TagView {
     "name": string;
     "size": number;
     "updated": string;
+}
+
+/**
+ * TerminalSession describes an open terminal.
+ */
+export interface TerminalSession {
+    "id": string;
+    "shellId": string;
+    "shell": string;
+    "context": string;
+    "namespace": string;
+    "profile": string;
+
+    /**
+     * FollowsCluster: kubectl and helm in this terminal use Context and
+     * Namespace without changing the kubeconfig's current context.
+     */
+    "followsCluster": boolean;
+}
+
+/**
+ * ToolInfo is one command-line tool and its version.
+ */
+export interface ToolInfo {
+    "name": string;
+    "found": boolean;
+    "path": string;
+    "version": string;
+}
+
+/**
+ * ToolsReport lists the tools a DevOps terminal usually needs, and warns
+ * when kubectl is too far from the cluster's version.
+ */
+export interface ToolsReport {
+    "tools": ToolInfo[] | null;
+    "serverVersion": string;
+    "skew": string;
 }
 
 /**

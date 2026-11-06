@@ -17,7 +17,7 @@ export function ContextBar() {
   const connected = contexts.filter((c) => c.connected);
   if (!active) {
     return (
-      <div className="flex h-12 items-center border-b border-line px-5 text-[13px] text-muted">
+      <div className="flex h-12 shrink-0 items-center border-b border-line bg-panel/60 px-5 text-[13px] text-muted">
         Not connected. Pick a cluster to start.
       </div>
     );
@@ -40,7 +40,7 @@ export function ContextBar() {
   };
 
   return (
-    <div className={`flex h-12 items-center gap-3 border-t-2 border-b border-b-line px-5 ${meta.border}`}>
+    <div className={`flex h-12 shrink-0 items-center gap-3 border-t-2 border-b border-b-line bg-panel/60 px-5 backdrop-blur ${meta.border}`}>
       <select
         aria-label="Active cluster"
         className="max-w-72 truncate rounded-md border border-line bg-panel-2 px-2 py-1 text-[13px] font-medium text-fg"

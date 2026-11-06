@@ -26,8 +26,8 @@ import (
 )
 
 const (
-	// Retention is how long records are kept.
-	Retention = 14 * 24 * time.Hour
+	// DefaultRetention is how long records are kept unless set otherwise.
+	DefaultRetention = 14 * 24 * time.Hour
 	// maxDayBytes caps one context's file for one day; past it, changes are
 	// still recorded but without their diff.
 	maxDayBytes = 64 << 20
@@ -93,8 +93,9 @@ func (q Query) matches(t time.Time, kind, ns, name string) bool {
 
 // Store reads and writes the record files.
 type Store struct {
-	dir string
-	now func() time.Time
+	dir       string
+	now       func() time.Time
+	retention time.Duration
 
 	mu    sync.Mutex
 	files map[string]*dayFile
@@ -106,9 +107,9 @@ type dayFile struct {
 	size int64
 }
 
-// Open returns the store kept in dir and removes records past Retention.
+// Open returns the store kept in dir and removes records past the retention.
 func Open(dir string) *Store {
-	s := &Store{dir: dir, now: time.Now, files: map[string]*dayFile{}}
+	s := &Store{dir: dir, now: time.Now, retention: DefaultRetention, files: map[string]*dayFile{}}
 	s.Prune()
 	return s
 }
@@ -216,7 +217,7 @@ func (s *Store) Events(contextName string, q Query) ([]Event, error) {
 // scan reads every record of the days the query covers.
 func (s *Store) scan(contextName string, q Query, fn func(record) bool) error {
 	since := q.Since
-	if oldest := s.now().Add(-Retention); since.Before(oldest) {
+	if oldest := s.now().Add(-s.Retention()); since.Before(oldest) {
 		since = oldest
 	}
 	dir := s.contextDir(contextName)
@@ -245,9 +246,9 @@ func (s *Store) scan(contextName string, q Query, fn func(record) bool) error {
 	return nil
 }
 
-// Prune deletes day files older than Retention.
+// Prune deletes day files older than the retention.
 func (s *Store) Prune() {
-	cutoff := dayOf(s.now().Add(-Retention))
+	cutoff := dayOf(s.now().Add(-s.Retention()))
 	contexts, err := os.ReadDir(s.dir)
 	if err != nil {
 		return
@@ -273,4 +274,23 @@ func (s *Store) Close() {
 		_ = df.f.Close()
 		delete(s.files, k)
 	}
+}
+
+// Retention returns how long records are kept.
+func (s *Store) Retention() time.Duration {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.retention
+}
+
+// SetRetention changes how long records are kept (at least a day) and
+// removes what's now too old.
+func (s *Store) SetRetention(d time.Duration) {
+	if d < 24*time.Hour {
+		d = 24 * time.Hour
+	}
+	s.mu.Lock()
+	s.retention = d
+	s.mu.Unlock()
+	s.Prune()
 }

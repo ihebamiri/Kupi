@@ -193,12 +193,22 @@ The UI shows the plan in the review dialog: summary, warnings, diff, and the rea
 | Prepare function | Used by |
 |---|---|
 | `PrepareApply` | Create or edit (forms and YAML): server-side apply with field manager `kupi`; conflicts with other managers are shown and only taken over if you choose to |
+| `PrepareApplyBatch` | A manifest with several objects: see below |
 | `PrepareDelete` | Delete buttons |
 | `PrepareScale`, `PrepareRestart` | Workload actions; restart sets the standard `restartedAt` annotation, like `kubectl rollout restart` |
 | `PrepareShell` / `StartShell` | Opening a shell in a container (checks `pods/exec`, asks a reason on production, audits before the shell opens) |
 | `PrepareSecretWrite` | Secret create and edit: a merge patch with only the keys you changed |
 | `PrepareGitOps` | Argo CD refresh and sync; Flux reconcile, suspend and resume |
 | `PrepareHelmUpgrade`, `PrepareHelmRollback`, `PrepareHelmUninstall` | Helm releases |
+
+### Several objects in one manifest
+
+`PrepareApplyBatch` takes every object of a manifest (documents separated by `---`, or a `List`), at most 200:
+
+1. It sorts them in Helm's install order: Namespaces, quotas, ServiceAccounts, Secrets, ConfigMaps, storage, CRDs, RBAC, Services, then workloads, then Ingresses and webhooks; custom resources last.
+2. It notes what the manifest itself creates that the cluster lacks: new namespaces, and custom types defined by a CRD in the same manifest.
+3. Each object gets the single-object treatment: name and namespace checks, a permission check, a server dry run and a diff. The result is a `PlanItem` with a state: create, update, unchanged, blocked, or **deferred**. Objects in a new namespace or of a new type can't be dry-run, so they're shown in full and checked by the cluster at commit. A duplicate object, an unknown type, a denied permission or a rejected dry run blocks the whole plan.
+4. Commit applies the steps in order, each with its resourceVersion precondition, and writes **one audit entry per object**. Before an object of a new type, it waits (up to a minute) for its CRD to be Established and the type to be served. Kubernetes has no transactions, so the first failure stops the run and the error says how many objects were applied.
 
 The Guard also records **access** to sensitive data that isn't a change: revealing or copying a Secret value, and showing Helm values (`RecordAccess`). On production these need a reason, and if the audit entry can't be written the value is not handed out.
 
@@ -210,7 +220,7 @@ The Guard also records **access** to sensitive data that isn't a change: reveali
 
 Each entry also stores the hash of the previous entry, and its own hash is the SHA-256 of the entry. Editing or deleting any past line breaks the chain, and "Verify" on the Audit log page reports where. It is **tamper-evident**, not tamper-proof: someone with access to your account can delete the whole file, but can't quietly rewrite history.
 
-Audited actions include every change, failed changes, shell sessions, Secret reveals and copies, Helm values reveals, port-forward starts, editing switched on and off, trust and profile changes, local cluster create, delete, caps and idle stops, and image loads.
+Audited actions include every change (one entry per object for a multi-object manifest), failed changes, shell sessions, opening the integrated terminal and switching it on or off, changes to safety settings, Secret reveals and copies, Helm values reveals, port-forward starts, editing switched on and off, trust and profile changes, local cluster create, delete, caps and idle stops, and image loads.
 
 ---
 
@@ -231,7 +241,10 @@ Audited actions include every change, failed changes, shell sessions, Secret rev
 - The form and the CodeMirror YAML editor edit the same object; switching between them is lossless. YAML is parsed and rendered in Go, so there's one parser.
 - Curated layouts show the important fields first for Deployment, Service, ConfigMap, Namespace, Job, CronJob, PersistentVolumeClaim, Ingress and HTTPRoute; "All fields" with search shows the rest. Starter templates are secure by default: non-root, read-only root filesystem, no privilege escalation, all capabilities dropped, seccomp, resource limits.
 - Checks: a Deployment's selector must match its pod labels; a Service shows how many pods its selector matches.
-- Saving goes through `PrepareApply`.
+- **Suggestions.** `frontend/src/lib/refs.ts` knows which field paths name another object: `metadata.namespace`, `configMapKeyRef.name`, `secretRef.name`, `persistentVolumeClaim.claimName`, `serviceAccountName`, `storageClassName`, `ingressClassName`, Ingress backends, `scaleTargetRef`, `roleRef`, RBAC subjects and more. Those fields become a combobox (`FormInputs.tsx`). It asks `FormService.Suggest` for the names of one of 16 allowed types, or `FormService.Keys` for the key names of a ConfigMap or Secret. Only key names: values never leave Go. Results are cached for 20 seconds.
+- **Sliders.** CPU, memory and storage in `resources.requests` and `limits`, and replica counts, get a slider over sensible steps (10m to 16 CPUs, 16Mi to 64Gi…) next to the exact value. `lib/quantity.ts` parses Kubernetes quantities and flags a limit below its request.
+- **Several objects.** `FormService.FromYAML` reports the objects of a multi-object manifest instead of one object, and the form steps aside for the YAML view. **Open file** reads the chosen file in the web view (`File.text()`, 1 MB at most) and sends the text like a paste, so Go never opens a path for the UI.
+- Saving goes through `PrepareApply`, or `PrepareApplyBatch` for several objects.
 
 ### Metrics (`metrics`)
 
@@ -253,6 +266,8 @@ A forward targets a Pod, a Service (named target ports are resolved) or a worklo
 Pods fold into their workload (ReplicaSets into Deployments, Jobs into CronJobs) with ready counts, restarts and the worst pod state. References to objects that don't exist show as dashed red nodes. Secret and ConfigMap names come from the table API, so the map never reads Secret values.
 
 The frontend draws it with React Flow and lays it out with ELK, left to right, refreshing every 15 seconds without moving things unless objects change. Overlays: **health**, **exposure** (everything reachable from a public entry point) and **security** (privileged, host network, host path, may run as root, no memory limit). The map code (about 1.7 MB, mostly ELK) loads only when you open the map.
+
+Selecting a workload or Service calls `CanvasService.Pods`. It follows ownership (Deployment → ReplicaSets → Pods, CronJob → Jobs → Pods; a Service uses its selector) and returns pod summaries, worst first. The map adds up to 12 pod cards under the selected node and pans to them. The side panel lists them all, and a pod opens its own detail panel.
 
 ### Images (`engine`, bridge `images.go`)
 
@@ -322,6 +337,32 @@ Kupi uses the Helm v4 Go SDK; it never runs the `helm` program.
 - **Caps:** memory and CPU limits on the node containers. They survive the cluster being stopped and started.
 - **Idle stop:** optional. Every bridge call for a context counts as use, and so do open port-forwards. After the chosen time without use, Kupi stops the cluster and records it in the audit log; connecting to it later starts it again.
 
+### Settings (`settings`, bridge `settings.go`)
+
+`settings.json` holds the preferences: theme, interface size, log and map defaults, the clipboard and vault timeouts, history retention, and the terminal options and snippets. `Normalize` clamps every value to a safe range on load and on save (copied secrets clear within 5 minutes, the vault locks within 8 hours), so a hand-edited file can't switch a safety feature off. The bridge applies changes at once (vault auto-lock, history retention, clipboard timeout) and audits changes to safety settings. `Save` can switch the terminal off but never on.
+
+### The integrated terminal (`terminal`, bridge `terminal.go`)
+
+The one deliberate exception to "never run a shell":
+
+- **Off by default.** `SettingsService.EnableTerminal` shows a **native** OS dialog (Wails' message dialog, outside the web view, so page scripts can't answer it), with Cancel as the default. Development builds can skip it with `KUPI_DEV_AUTOCONFIRM=1` for browser testing; release builds can't.
+- **Only detected shells.** `terminal.Shells()` finds PowerShell 7, Windows PowerShell, Command Prompt, Git Bash and WSL on Windows (system paths from `GetSystemDirectory`), and the shells listed in `/etc/shells` (bash, zsh, fish, sh) on Linux. The UI picks one by ID and can't name a path. Arguments are fixed (`-NoLogo`, `--login -i`). The architecture tests reject command flags (`-c`, `/c`, `-Command`…) in this package, and any import of it outside the bridge.
+- **Pseudo-terminals without new dependencies.** Windows uses ConPTY (`CreatePseudoConsole` from `golang.org/x/sys/windows`). A watcher closes the console when the shell exits, because ConPTY doesn't end its output stream by itself. Linux opens `/dev/ptmx` with `golang.org/x/sys/unix` and starts the shell in its own session. Output streams as `kupi:terminal` events, split only on whole UTF-8 characters. Input is limited to 64 KB per call, and at most 12 terminals can be open.
+- **kubectl follows Kupi.** With a connected cluster, the bridge writes a small kubeconfig to `<config>/terminal/<random>.kubeconfig`. It holds only `current-context` and one context entry: the cluster and user **names**, and the namespace. `KUBECONFIG` is set to that file followed by the real ones. Kubeconfig merging takes the first definition of a context, so the tab uses Kupi's cluster and namespace while credentials still come from the real files, and `kubectl config …` inside the tab writes to the small file. It's removed when the tab closes and on the next start. `KUPI_CONTEXT`, `KUPI_NAMESPACE` and `KUPI_PROFILE` are set; Kupi's own `KUPI_*` variables are not passed on.
+- **In the UI** (`TerminalPage`, `TerminalTab`, `lib/snippets.ts`):
+  - xterm.js with the fit, search and web-links add-ons;
+  - tabs that stay mounted while you visit other pages;
+  - a context strip, red on production;
+  - a paste check that intercepts every paste and asks before text with a line break, or a destructive command on production;
+  - snippets that are typed but never run;
+  - a tools panel (`TerminalService.Tools`) with the versions of kubectl, helm, docker, k3d, kind, minikube, flux and argocd, and a kubectl/cluster version-skew warning;
+  - links that open in the browser only after a confirmation (`AppService.OpenURL`, http and https only).
+- Commands typed in the terminal don't go through the Guard. The UI says so, and opening a terminal is audited.
+
+### Helper programs (`procutil`)
+
+kubectl, docker and k3d are started with `procutil.Command`: an absolute path and an argument list, plus `CREATE_NO_WINDOW` on Windows so no console window flashes over Kupi.
+
 ---
 
 ## 9. The frontend
@@ -329,8 +370,9 @@ Kupi uses the Helm v4 Go SDK; it never runs the `helm` program.
 `frontend/` is a React 18 + TypeScript app built with Vite 8, styled with Tailwind CSS v4. It is served from inside the binary (Go `embed`), so nothing loads from the network.
 
 - **Entry and layout:** `App.tsx` draws the sidebar, the context bar and the page. A small router in `state/nav.tsx` holds the current page as data (no URLs).
-- **State:** `state/clusters.tsx` (contexts, the active cluster, the namespace in view, connect and disconnect), `state/nav.tsx` (current page, resource types of the active cluster), `state/forwards.tsx` (live port-forward list from events).
-- **Pages:** Clusters, Overview, Map, Incident, History, Helm, GitOps, Secrets, Vault, Images, Local clusters, Port forwards, Create or edit, Audit log, and one Resources page per type.
+- **State:** `state/settings.tsx` (preferences; applies the theme through `data-theme` on `<html>` and the interface size through the web view's zoom), `state/clusters.tsx` (contexts, the active cluster, the namespace in view, connect and disconnect), `state/nav.tsx` (current page, resource types of the active cluster), `state/forwards.tsx` (live port-forward list from events).
+- **Pages:** Clusters, Overview, Map, Incident, History, Helm, GitOps, Secrets, Vault, Images, Local clusters, Port forwards, Create or edit, Terminal, Settings, Audit log, and one Resources page per type.
+- **Look:** design tokens in `styles.css` (a navy palette from the logo, dark and light), the logo as an inline SVG component (`components/Logo.tsx`), and the app icon (`build/appicon.png`, `build/windows/icon.ico`) rendered from the same shapes.
 - **Shared components:** the review dialog (every change), the detail panel, the resource table (virtualised, so huge lists stay fast), the logs and shell views, the schema form, the YAML editor, the diff view, the timeline, dialogs and small UI parts.
 - **Code splitting:** the YAML editor (CodeMirror), the terminal (xterm.js), the map (React Flow + ELK), the metrics charts (uPlot) and the Helm page load only when first opened. The main bundle is about 200 KB (56 KB compressed).
 - **Rules:** no `dangerouslySetInnerHTML`, no `eval`, no remote scripts, styles or fonts; cluster data is always shown as text. Values typed into secret fields are masked, with spell-check and autofill off.
@@ -352,7 +394,7 @@ The repository's `CLAUDE.md` lists eleven non-negotiable rules. The architecture
 
 - only `internal/guard` may call `Mutator()` or `HelmMutator()`;
 - only `internal/kube` may import the client-go and Helm packages that talk to the API server;
-- nothing may run a shell (`sh`, `bash`, `cmd`, `powershell`…);
+- nothing may run a shell (`sh`, `bash`, `cmd`, `powershell`…). The integrated terminal is the one exception: no command flag (`-c`, `/c`, `-Command`…) may appear in its package, and only the bridge may import it;
 - the frontend may not use `dangerouslySetInnerHTML`, `eval` or `new Function`, or load remote resources.
 
 The milestone 9 sweep checked the others by reading the code: every bridge method validates its inputs, nothing logs or returns secret values, every file write is user-only and atomic, port-forwards bind to 127.0.0.1, and unknown clusters are production.
@@ -371,6 +413,8 @@ All in the config dir (`%AppData%\kupi` on Windows, `~/.config/kupi` on Linux), 
 | `history/<cluster>/<day>.jsonl` | Recorded changes and warning events, 14 days |
 | `vault.json`, `vault.age`, `vault-key.age` | Vault settings, encrypted data, and (passphrase mode only) the encrypted key |
 | `laptop.json` | Laptop-mode idle timers |
+| `settings.json` | Preferences and terminal snippets |
+| `terminal/*.kubeconfig` | While a terminal tab is open: its context-and-namespace overlay (no credentials) |
 
 The vault key itself is in the OS password store under the name `kupi`, unless you chose a passphrase.
 
@@ -395,10 +439,10 @@ The vault key itself is in the OS password store under the name `kupi`, unless y
 | filippo.io/age | Vault encryption |
 | 99designs/keyring | The OS password store for the vault key |
 | Microsoft go-winio | Docker's named pipe on Windows |
-| golang.org/x/sys | Windows clipboard calls |
+| golang.org/x/sys | Windows clipboard calls, ConPTY and the Linux pseudo-terminal |
 | React, TypeScript, Vite, Tailwind | The UI |
 | Radix Dialog, lucide-react, cmdk, TanStack Virtual | Accessible dialogs, icons, the command palette, fast long lists |
-| CodeMirror 6, xterm.js, uPlot, React Flow, elkjs | YAML editor, terminal, charts, map, map layout |
+| CodeMirror 6, xterm.js (with its fit, search and web-links add-ons), uPlot, React Flow, elkjs | YAML editor, terminals, charts, map, map layout |
 | Vitest | Frontend tests |
 
 The design doc's technology table names all of these. Kupi avoids the full Docker SDK (a small client of its own instead) and has no SQLite.
@@ -435,6 +479,7 @@ The design doc's technology table names all of these. Kupi avoids the full Docke
 - Forms are rendered by Kupi's own schema form, not JSON Forms with react-hook-form, because Kubernetes schemas fit those poorly.
 - History and the audit log use append-only JSON lines files instead of SQLite.
 - The vault's passphrase fallback uses age's scrypt mode rather than Argon2id.
+- The integrated terminal, added after v0.2 at the maintainer's request, is a deliberate exception to the "never run a shell" and "no catch-all bindings" rules, bounded as described in section 8.
 
 ---
 
@@ -466,9 +511,12 @@ internal/
   localk8s/                 k3d/kind/minikube, image loading, usage and caps
   metrics/                  metrics-server sampler
   profile/                  profile detection and rules
+  procutil/                 starting helper programs without a console window
   redact/                   hiding Secret values
   schema/                   OpenAPI schemas → form fields
   secrets/                  Secret details, TLS, registry logins, exposure scan
+  settings/                 preferences, clamped to safe ranges
+  terminal/                 integrated terminal: shells in ConPTY or /dev/ptmx
   trust/                    kubeconfig trust store
   validate/                 input validation
   vault/                    encrypted local vault
@@ -476,7 +524,7 @@ internal/
 frontend/
   src/pages/                one file per page
   src/components/           shared UI parts
-  src/state/                clusters, navigation, forwards
+  src/state/                settings, clusters, navigation, forwards
   src/lib/                  API re-exports and pure helpers (with tests)
   bindings/                 generated by Wails, never edited by hand
 build/                      Wails build tasks, icons, Windows manifest and version info

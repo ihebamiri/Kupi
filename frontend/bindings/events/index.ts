@@ -33,3 +33,8 @@ export const KupiPull = "kupi:pull";
  */
 export const KupiShell = "kupi:shell";
 
+/**
+ * Name of the custom event "kupi:terminal".
+ */
+export const KupiTerminal = "kupi:terminal";
+

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Ban, CircleCheck, ShieldAlert, TriangleAlert } from "lucide-react";
 import { Dialog } from "./Dialog";
 import { DiffView } from "./DiffView";
+import { PlanItems } from "./PlanItems";
 import { Badge, Button, Field, Notice, inputClass } from "./ui";
 import { GuardService, errorMessage, type CommitResult, type PlanView } from "../lib/api";
 import { profileMeta } from "../lib/profiles";
@@ -74,13 +75,15 @@ export function ReviewDialog({ plan, onClose, onCommitted, onTakeOver }: ReviewD
   };
 
   const resource = plan.namespace ? `${plan.namespace}/${plan.name}` : plan.name;
+  const items = plan.items ?? [];
+  const multi = items.length > 0;
 
   return (
     <Dialog
       open
       wide
       onOpenChange={(open) => !open && close()}
-      title={`Review: ${plan.kind} ${resource}`}
+      title={multi ? `Review: ${items.length} objects` : `Review: ${plan.kind} ${resource}`}
       description={`On ${plan.context}. Nothing has changed yet.`}
       footer={
         <>
@@ -98,7 +101,7 @@ export function ReviewDialog({ plan, onClose, onCommitted, onTakeOver }: ReviewD
       <div className="flex flex-col gap-4">
         <div className="flex flex-wrap items-center gap-2">
           <Badge className={meta.badge}>{meta.label}</Badge>
-          <Badge className="bg-panel-2 text-muted">{plan.apiVersion}</Badge>
+          {!multi && <Badge className="bg-panel-2 text-muted">{plan.apiVersion}</Badge>}
           <Badge className="bg-panel-2 text-muted">{plan.action}</Badge>
         </div>
 
@@ -144,10 +147,17 @@ export function ReviewDialog({ plan, onClose, onCommitted, onTakeOver }: ReviewD
           </Notice>
         )}
 
-        <section>
-          <h3 className="mb-1.5 text-[12px] font-semibold tracking-wide text-muted uppercase">Diff</h3>
-          <DiffView diff={plan.diff} />
-        </section>
+        {multi ? (
+          <section>
+            <h3 className="mb-1.5 text-[12px] font-semibold tracking-wide text-muted uppercase">Objects, in the order they're applied</h3>
+            <PlanItems items={items} />
+          </section>
+        ) : (
+          <section>
+            <h3 className="mb-1.5 text-[12px] font-semibold tracking-wide text-muted uppercase">Diff</h3>
+            <DiffView diff={plan.diff} />
+          </section>
+        )}
 
         {plan.allowed && plan.needsReason && (
           <Field label="Reason" hint="Required on this cluster. Saved in the audit log.">

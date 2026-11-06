@@ -15,8 +15,9 @@ Kupi (Kubernetes Pilot) is a free, open-source desktop app for managing Kubernet
 ## What it does
 
 - Browse every resource type (custom resources included), with logs, a shell, events and live metrics.
-- Create and edit with forms generated from the cluster's own schema, kept in sync with a YAML editor.
-- A live map of how Ingresses, Services, workloads, config and storage connect, with health and security overlays.
+- Create and edit with forms generated from the cluster's own schema, kept in sync with a YAML editor. Fields suggest the namespaces, ConfigMaps, Secrets and other objects that exist; sizes and replicas have sliders. Apply whole manifests with many objects, pasted or opened from a file.
+- A live map of how Ingresses, Services, workloads, config and storage connect, with health and security overlays. Select a workload to see its pods.
+- An integrated terminal (opt-in): your own shell with kubectl pointed at the cluster you're connected to, paste checks for risky commands, snippets and tool versions.
 - Port forwards that reconnect on their own, on 127.0.0.1 only.
 - Local images and k3d clusters: pull, load into a cluster, deploy; create, start, stop; laptop mode caps a cluster's memory and CPU and stops it when idle.
 - Secrets without leaks: values stay hidden until you reveal one key, copies clear themselves, and edits send only the keys you change. A local vault keeps credentials encrypted on your computer.

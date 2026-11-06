@@ -13,8 +13,6 @@ import (
 )
 
 const (
-	// clipboardClearAfter is how long a copied secret stays on the clipboard.
-	clipboardClearAfter = 30 * time.Second
 	// maxSecretBytes is the API server's limit for a whole Secret.
 	maxSecretBytes = 1 << 20
 	maxSecretKeys  = 250
@@ -87,7 +85,7 @@ func (s *SecretService) Describe(ctx context.Context, contextName, namespace, na
 	return SecretView{
 		Details:           *d,
 		RevealNeedsReason: s.d.Guard.AccessNeedsReason(contextName),
-		ClearAfterSeconds: int(clipboardClearAfter / time.Second),
+		ClearAfterSeconds: int(s.d.clipboardTTL() / time.Second),
 	}, nil
 }
 
@@ -107,7 +105,7 @@ func (s *SecretService) Reveal(ctx context.Context, contextName, namespace, name
 }
 
 // CopyValue puts one value on the system clipboard without sending it to the
-// UI, and clears it again after clipboardClearAfter.
+// UI, and clears it again after the time set in Settings.
 func (s *SecretService) CopyValue(ctx context.Context, contextName, namespace, name, key, reason string) error {
 	value, err := s.value(ctx, contextName, namespace, name, key)
 	if err != nil {
@@ -119,7 +117,7 @@ func (s *SecretService) CopyValue(ctx context.Context, contextName, namespace, n
 	if err := s.d.Guard.RecordAccess(contextName, "secret-copied", secretResource(namespace, name, key), reason); err != nil {
 		return err
 	}
-	return s.d.Clipboard.Copy(string(value), clipboardClearAfter)
+	return s.d.Clipboard.Copy(string(value), s.d.clipboardTTL())
 }
 
 // CopyEnv puts every value on the clipboard as a .env file.
@@ -141,7 +139,7 @@ func (s *SecretService) CopyEnv(ctx context.Context, contextName, namespace, nam
 	if err := s.d.Guard.RecordAccess(contextName, "secret-copied", fmt.Sprintf("Secret %s/%s (all keys as .env)", namespace, name), reason); err != nil {
 		return EnvCopy{}, err
 	}
-	if err := s.d.Clipboard.Copy(text, clipboardClearAfter); err != nil {
+	if err := s.d.Clipboard.Copy(text, s.d.clipboardTTL()); err != nil {
 		return EnvCopy{}, err
 	}
 	if skipped == nil {

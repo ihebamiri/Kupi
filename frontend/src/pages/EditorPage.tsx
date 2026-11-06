@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Eye, ShieldCheck } from "lucide-react";
+import { Eye, FileText, FolderOpen, Layers, ShieldCheck } from "lucide-react";
 import { ReviewDialog } from "../components/ReviewDialog";
 import { SchemaForm } from "../components/SchemaForm";
 import { YamlEditor } from "../components/YamlEditor";
@@ -15,6 +15,13 @@ type Mode = "form" | "yaml";
 type Obj = Record<string, unknown>;
 
 const schemaCache = new Map<string, SchemaNode>();
+const MAX_FILE_BYTES = 1 << 20;
+
+/** "ConfigMap settings, Deployment web and 3 more" */
+function summarizeObjects(names: string[], shown = 4): string {
+  if (names.length <= shown) return names.join(", ");
+  return `${names.slice(0, shown).join(", ")} and ${names.length - shown} more`;
+}
 
 interface EditorPageProps {
   onConnect: () => void;
@@ -42,6 +49,10 @@ export function EditorPage({ onConnect, initialManifest, edit, fromImage }: Edit
   const [done, setDone] = useState<string | null>(null);
   const [fromTemplate, setFromTemplate] = useState(false);
   const [matching, setMatching] = useState<number | null>(null);
+  // Objects in the manifest when it holds more than one (the form edits one).
+  const [multi, setMulti] = useState<string[] | null>(null);
+  const [fileName, setFileName] = useState<string | null>(null);
+  const fileInput = useRef<HTMLInputElement>(null);
   // Which side changed last, so the other side follows without loops.
   const source = useRef<"yaml" | "form">("yaml");
   const contextName = active?.name ?? "";
@@ -100,9 +111,16 @@ export function EditorPage({ onConnect, initialManifest, edit, fromImage }: Edit
     const t = window.setTimeout(() => {
       void FormService.FromYAML(yamlText).then((r) => {
         if (source.current !== "yaml") return;
-        if (r.error) setParseError(r.error);
-        else {
+        if (r.error) {
+          setParseError(r.error);
+          setMulti(null);
+        } else if ((r.objects ?? []).length > 1) {
           setParseError(null);
+          setMulti(r.objects ?? []);
+          setObj(null);
+        } else {
+          setParseError(null);
+          setMulti(null);
           setObj(JSON.parse(r.json) as Obj);
         }
       });
@@ -185,6 +203,27 @@ export function EditorPage({ onConnect, initialManifest, edit, fromImage }: Edit
     );
   }
 
+  // A YAML file chosen on this computer. It's read here and sent as text, like
+  // a paste: Kupi never reads files by path on the UI's behalf.
+  const openFile = async (file: File) => {
+    setError(null);
+    setDone(null);
+    if (file.size > MAX_FILE_BYTES) {
+      setError(`${file.name} is larger than 1 MB.`);
+      return;
+    }
+    try {
+      const text = await file.text();
+      source.current = "yaml";
+      setFromTemplate(false);
+      setYamlText(text);
+      setFileName(file.name);
+      setMode("yaml");
+    } catch (err) {
+      setError(`Couldn't read ${file.name}: ${errorMessage(err)}`);
+    }
+  };
+
   const preview = async (force: boolean) => {
     setBusy(true);
     setError(null);
@@ -209,12 +248,41 @@ export function EditorPage({ onConnect, initialManifest, edit, fromImage }: Edit
     <div className="flex h-full min-h-0 flex-col">
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <h1 className="text-lg font-semibold">{title}</h1>
-        {kind && (
+        {kind && !multi && (
           <span className="text-[12px] text-muted">
             {kind} · {apiVersion} · on {active.name}
           </span>
         )}
+        {multi && (
+          <span className="text-[12px] text-muted">
+            {multi.length} objects · on {active.name}
+          </span>
+        )}
+        {fileName && (
+          <span className="inline-flex items-center gap-1 rounded bg-panel-2 px-1.5 py-0.5 font-mono text-[11px] text-muted" title="Opened from this file">
+            <FileText className="size-3" aria-hidden />
+            {fileName}
+          </span>
+        )}
         <div className="ml-auto flex items-center gap-2">
+          {!edit && (
+            <>
+              <input
+                ref={fileInput}
+                type="file"
+                accept=".yaml,.yml,.json,application/json,application/yaml,text/yaml"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  e.target.value = "";
+                  if (f) void openFile(f);
+                }}
+              />
+              <Button icon={<FolderOpen className="size-4" />} onClick={() => fileInput.current?.click()} title="Open a YAML or JSON file from this computer">
+                Open file
+              </Button>
+            </>
+          )}
           {!edit && (
             <select
               aria-label="Start from"
@@ -253,6 +321,12 @@ export function EditorPage({ onConnect, initialManifest, edit, fromImage }: Edit
         {done && <Notice tone="good">{done}</Notice>}
         {error && <Notice tone="bad">{error}</Notice>}
         {parseError && <Notice tone="bad">YAML problem: {parseError}</Notice>}
+        {multi && (
+          <Notice icon={<Layers className="size-4 text-accent" />}>
+            This manifest holds {multi.length} objects: <span className="font-mono text-[12px]">{summarizeObjects(multi)}</span>. Preview change checks each one, then applies them
+            together in a safe order (namespaces and config first, workloads last).
+          </Notice>
+        )}
         {warnings.map((w) => (
           <Notice key={w} tone="warn">
             {w}
@@ -285,9 +359,18 @@ export function EditorPage({ onConnect, initialManifest, edit, fromImage }: Edit
         ) : (
           <div className="h-full overflow-y-auto pr-2">
             {parseError && <p className="text-[13px] text-muted">Fix the YAML problem above to use the form.</p>}
-            {schemaError && <Notice tone="bad">No form for this kind: {schemaError}. Use the YAML tab.</Notice>}
-            {!parseError && !schemaError && !schema && <p className="text-[13px] text-muted">Loading the form…</p>}
-            {!parseError && schema && obj && <SchemaForm schema={schema} value={obj} onChange={onFormChange} essentials={essentialsFor(apiVersion, kind)} />}
+            {multi && (
+              <p className="text-[13px] text-muted">
+                The form edits one object at a time. Use the{" "}
+                <button className="text-accent underline" onClick={() => setMode("yaml")}>
+                  YAML view
+                </button>{" "}
+                for this manifest, or preview it as it is.
+              </p>
+            )}
+            {schemaError && !multi && <Notice tone="bad">No form for this kind: {schemaError}. Use the YAML tab.</Notice>}
+            {!parseError && !multi && !schemaError && !schema && <p className="text-[13px] text-muted">Loading the form…</p>}
+            {!parseError && schema && obj && <SchemaForm schema={schema} value={obj} onChange={onFormChange} essentials={essentialsFor(apiVersion, kind)} env={{ contextName, namespace: namespace || "default" }} />}
           </div>
         )}
       </div>

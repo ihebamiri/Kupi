@@ -14,6 +14,9 @@ import type * as forward$0 from "../../../../iheb-amiri/kupi/internal/forward/mo
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
 import type * as live$0 from "../../../../iheb-amiri/kupi/internal/live/models.js";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
+import type * as terminal$0 from "../../../../iheb-amiri/kupi/internal/terminal/models.js";
 
 declare module "@wailsio/runtime" {
     namespace Events {
@@ -23,6 +26,7 @@ declare module "@wailsio/runtime" {
             "kupi:logs": live$0.LogBatch;
             "kupi:pull": bridge$0.PullEvent;
             "kupi:shell": live$0.ShellChunk;
+            "kupi:terminal": terminal$0.Chunk;
         }
     }
 }

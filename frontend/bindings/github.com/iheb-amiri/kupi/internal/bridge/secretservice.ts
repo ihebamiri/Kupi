@@ -36,7 +36,7 @@ export function CopyEnv(contextName: string, $namespace: string, name: string, r
 
 /**
  * CopyValue puts one value on the system clipboard without sending it to the
- * UI, and clears it again after clipboardClearAfter.
+ * UI, and clears it again after the time set in Settings.
  */
 export function CopyValue(contextName: string, $namespace: string, name: string, key: string, reason: string): $CancellablePromise<void> {
     return $Call.ByID(3762539820, contextName, $namespace, name, key, reason);

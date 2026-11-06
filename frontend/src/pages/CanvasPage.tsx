@@ -2,18 +2,36 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Background, Controls, MiniMap, ReactFlow, ReactFlowProvider, useReactFlow, type Edge, type Node } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { RefreshCw, Search } from "lucide-react";
-import { CanvasNode, NamespaceFrame, type CanvasNodeData } from "../components/CanvasNode";
+import { CanvasNode, NamespaceFrame, POD_CHIP_H, POD_CHIP_W, PodChip, type CanvasNodeData, type PodChipData } from "../components/CanvasNode";
 import { DetailPanel } from "../components/DetailPanel";
+import { PodList } from "../components/PodList";
 import { Button, Notice } from "../components/ui";
-import { CanvasService, errorMessage, type TableRow } from "../lib/api";
+import { CanvasService, errorMessage, type PodSummary, type PodsResult, type TableRow } from "../lib/api";
 import { FLAG_TEXT, dependents, exposed, neighbourhood, securityLevel, type GraphEdge, type GraphNode, type Overlay } from "../lib/canvas";
-import { layout, type Positioned } from "../lib/canvasLayout";
+import { NODE_H, NODE_W, layout, type Positioned } from "../lib/canvasLayout";
 import { useClusters } from "../state/clusters";
 import { useNav } from "../state/nav";
+import { effectiveTheme, useSettings } from "../state/settings";
 
-const REFRESH_MS = 15_000;
+
 const LARGE = 400;
-const nodeTypes = { kupi: CanvasNode, frame: NamespaceFrame };
+const nodeTypes = { kupi: CanvasNode, frame: NamespaceFrame, pod: PodChip };
+/** Kinds whose pods fan out under them when selected. */
+const POD_KINDS = new Set(["Deployment", "StatefulSet", "DaemonSet", "ReplicaSet", "Job", "CronJob", "Service"]);
+const CHIPS_SHOWN = 12;
+const NO_PODS: PodSummary[] = [];
+const CHIP_GAP = 8;
+
+/** Where the pod chips go: a grid centred under the selected node. */
+export function chipPositions(count: number, anchor: { x: number; y: number }): { x: number; y: number }[] {
+  const cols = Math.min(4, Math.max(1, count));
+  const width = cols * POD_CHIP_W + (cols - 1) * CHIP_GAP;
+  const left = anchor.x + NODE_W / 2 - width / 2;
+  return Array.from({ length: count }, (_, i) => ({
+    x: left + (i % cols) * (POD_CHIP_W + CHIP_GAP),
+    y: anchor.y + NODE_H + 36 + Math.floor(i / cols) * (POD_CHIP_H + CHIP_GAP),
+  }));
+}
 
 const MINIMAP_COLOR: Record<string, string> = { good: "#3ccf91", warn: "#f2b84b", bad: "#f06a6a", unknown: "#9aa3b2" };
 
@@ -43,6 +61,8 @@ export function CanvasPage() {
 /** Live map of how the objects in a namespace connect. */
 function Canvas() {
   const { active, namespace } = useClusters();
+  const { settings } = useSettings();
+  const refreshMs = settings.mapRefreshSeconds * 1000;
   const { findType } = useNav();
   const { fitView } = useReactFlow();
   const [graph, setGraph] = useState<GraphData | null>(null);
@@ -52,6 +72,9 @@ function Canvas() {
   const [selected, setSelected] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
+  const [pods, setPods] = useState<{ id: string; result: PodsResult } | null>(null);
+  const [podsError, setPodsError] = useState<string | null>(null);
+  const [selectedPod, setSelectedPod] = useState<PodSummary | null>(null);
   const layoutKey = useRef("");
   const contextName = active?.name ?? "";
 
@@ -82,11 +105,51 @@ function Canvas() {
     layoutKey.current = "";
     setSelected(null);
     void load();
-    const timer = window.setInterval(() => void load(), REFRESH_MS);
+    const timer = window.setInterval(() => void load(), refreshMs);
     return () => window.clearInterval(timer);
-  }, [load]);
+  }, [load, refreshMs]);
 
   const nodesById = useMemo(() => new Map((graph?.nodes ?? []).map((n) => [n.id, n])), [graph]);
+
+  // The selected workload's pods, refreshed with the map.
+  const selNode = selected ? nodesById.get(selected) : undefined;
+  const podsFor = selNode && POD_KINDS.has(selNode.kind) && !(selNode.flags ?? []).includes("missing") ? selNode : undefined;
+  useEffect(() => {
+    setSelectedPod(null);
+    setPodsError(null);
+    if (!podsFor) setPods(null);
+  }, [podsFor?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!podsFor || !contextName) return;
+    let cancelled = false;
+    CanvasService.Pods(contextName, podsFor.kind, podsFor.namespace, podsFor.name)
+      .then((r) => {
+        if (!cancelled && r) {
+          setPods({ id: podsFor.id, result: { ...r, pods: r.pods ?? [] } });
+          setPodsError(null);
+        }
+      })
+      .catch((err) => !cancelled && setPodsError(errorMessage(err)));
+    return () => {
+      cancelled = true;
+    };
+    // Re-read whenever the map refreshes (graph changes) or the selection moves.
+  }, [contextName, podsFor?.id, graph]); // eslint-disable-line react-hooks/exhaustive-deps
+  const podsForId = podsFor?.id;
+  const podList = useMemo(() => (pods && podsForId && pods.id === podsForId ? (pods.result.pods ?? NO_PODS) : NO_PODS), [pods, podsForId]);
+
+  // When a workload's pods first appear, bring the workload and its pods into view.
+  const fitted = useRef("");
+  useEffect(() => {
+    if (!podsForId || !settings.mapShowPods || podList.length === 0 || fitted.current === podsForId) return;
+    fitted.current = podsForId;
+    const ids = [podsForId, ...podList.slice(0, CHIPS_SHOWN).map((p) => `pod:${p.uid}`)];
+    const t = window.setTimeout(() => void fitView({ nodes: ids.map((id) => ({ id })), padding: 0.35, duration: 350, maxZoom: 1.2 }), 60);
+    return () => window.clearTimeout(t);
+  }, [podsForId, podList, settings.mapShowPods, fitView]);
+  useEffect(() => {
+    if (!podsForId) fitted.current = "";
+  }, [podsForId]);
   const exposedSet = useMemo(() => (graph ? exposed(graph.nodes, graph.edges) : new Set<string>()), [graph]);
   const focus = useMemo(() => (selected && graph ? neighbourhood(selected, graph.edges, 2) : null), [selected, graph]);
   const q = query.trim().toLowerCase();
@@ -116,9 +179,21 @@ function Canvas() {
       if (q) dimmed = !(n.name.toLowerCase().includes(q) || n.kind.toLowerCase().includes(q));
       const data: CanvasNodeData = { node: n, ring, dimmed, selected: n.id === selected };
       out.push({ id: n.id, type: "kupi", position: { x: p.x, y: p.y }, data, parentId: p.parent, extent: p.parent ? "parent" : undefined, draggable: true });
+      if (n.id === selected && settings.mapShowPods && podList.length > 0) {
+        const shown = podList.slice(0, CHIPS_SHOWN);
+        const extra = podList.length - shown.length;
+        const spots = chipPositions(shown.length + (extra > 0 ? 1 : 0), p);
+        shown.forEach((pod, i) => {
+          const chip: PodChipData = { pod, selected: selectedPod?.uid === pod.uid };
+          out.push({ id: `pod:${pod.uid}`, type: "pod", position: spots[i], data: chip, parentId: p.parent, draggable: false, zIndex: 20 });
+        });
+        if (extra > 0) {
+          out.push({ id: "pod:more", type: "pod", position: spots[shown.length], data: { pod: shown[0], selected: false, more: extra }, parentId: p.parent, draggable: false, selectable: false, zIndex: 20 });
+        }
+      }
     }
     return out;
-  }, [positions, nodesById, overlay, exposedSet, focus, q, selected]);
+  }, [positions, nodesById, overlay, exposedSet, focus, q, selected, podList, selectedPod, settings.mapShowPods]);
 
   const flowEdges: Edge[] = useMemo(
     () =>
@@ -134,9 +209,20 @@ function Canvas() {
           labelBgStyle: { fill: "var(--kupi-bg)" },
           style: { stroke: style.stroke, strokeDasharray: style.dash, strokeWidth: 1.4, opacity: lit ? 1 : 0.15 },
           animated: e.kind === "routes" && lit,
-        };
-      }),
-    [graph, focus],
+        } as Edge;
+      }).concat(
+        selected
+          ? podList.slice(0, CHIPS_SHOWN).map((pod) => ({
+              id: `runs:${pod.uid}`,
+              source: selected,
+              sourceHandle: "pods",
+              target: `pod:${pod.uid}`,
+              style: { stroke: pod.health === "bad" ? "var(--kupi-bad)" : "var(--kupi-muted)", strokeDasharray: "2 3", strokeWidth: 1.2 },
+              zIndex: 19,
+            }))
+          : [],
+      ),
+    [graph, focus, selected, podList],
   );
 
   if (!active) return null;
@@ -146,6 +232,10 @@ function Canvas() {
     ? { name: sel.name, namespace: sel.namespace, uid: sel.uid, created: sel.created, labels: sel.labels ?? {}, ownerKind: "", ownerName: "", cells: [] }
     : null;
   const affected = sel && ["ConfigMap", "Secret", "PersistentVolumeClaim"].includes(sel.kind) && graph ? dependents(sel.id, graph.edges) : [];
+  const podType = findType("", "pods");
+  const podRow: TableRow | null = selectedPod
+    ? { name: selectedPod.name, namespace: selectedPod.namespace, uid: selectedPod.uid, created: selectedPod.created, labels: selectedPod.labels ?? {}, ownerKind: "", ownerName: "", cells: [] }
+    : null;
 
   return (
     <div className="flex h-full min-h-0 gap-4">
@@ -153,7 +243,7 @@ function Canvas() {
         <div className="mb-3 flex flex-wrap items-center gap-2">
           <h1 className="text-lg font-semibold">Map</h1>
           <span className="text-[12px] text-muted">
-            {namespace ? `namespace ${namespace}` : "all namespaces"} · {graph ? `${graph.nodes.length} objects` : "…"} · refreshes every 15 s
+            {namespace ? `namespace ${namespace}` : "all namespaces"} · {graph ? `${graph.nodes.length} objects` : "…"} · refreshes every {settings.mapRefreshSeconds} s
           </span>
           <div className="ml-auto flex items-center gap-2">
             <div role="tablist" aria-label="Overlay" className="flex rounded-md border border-line p-0.5">
@@ -193,11 +283,14 @@ function Canvas() {
             nodes={flowNodes}
             edges={flowEdges}
             nodeTypes={nodeTypes}
-            onNodeClick={(_, n) => n.type === "kupi" && setSelected((cur) => (cur === n.id ? null : n.id))}
+            onNodeClick={(_, n) => {
+              if (n.type === "kupi") setSelected((cur) => (cur === n.id ? null : n.id));
+              else if (n.type === "pod" && !(n.data as PodChipData).more) setSelectedPod((n.data as PodChipData).pod);
+            }}
             onPaneClick={() => setSelected(null)}
             minZoom={0.1}
             proOptions={{ hideAttribution: true }}
-            colorMode="dark"
+            colorMode={effectiveTheme(settings.theme)}
             fitView
           >
             <Background gap={24} color="var(--kupi-line)" />
@@ -229,7 +322,27 @@ function Canvas() {
               {affected.map((id) => nodesById.get(id)?.name ?? id).join(", ")}.
             </Notice>
           )}
-          {selType && selRow && !(sel.flags ?? []).includes("missing") ? (
+          {podsFor && !selectedPod && (
+            <PodList
+              owner={`${sel.kind} ${sel.name}`}
+              pods={podList}
+              note={pods?.id === podsFor.id ? pods.result.note : ""}
+              truncated={pods?.id === podsFor.id && pods.result.truncated}
+              loading={!pods || pods.id !== podsFor.id}
+              error={podsError}
+              onOpen={setSelectedPod}
+            />
+          )}
+          {selectedPod && podType && podRow ? (
+            <div className="flex min-h-0 flex-1 flex-col gap-2">
+              <button className="w-fit text-[12px] text-accent hover:underline" onClick={() => setSelectedPod(null)}>
+                ← Back to {sel.kind} {sel.name}
+              </button>
+              <div className="flex min-h-0 flex-1">
+                <DetailPanel key={selectedPod.uid} className="w-full" contextName={active.name} type={podType} row={podRow} onClose={() => setSelectedPod(null)} />
+              </div>
+            </div>
+          ) : selType && selRow && !(sel.flags ?? []).includes("missing") ? (
             <div className="flex min-h-0 flex-1">
               <DetailPanel key={sel.id} className="w-full" contextName={active.name} type={selType} row={selRow} onClose={() => setSelected(null)} />
             </div>

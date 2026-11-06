@@ -4,5 +4,7 @@
 export type {
     Edge,
     Graph,
-    Node
+    Node,
+    PodSummary,
+    PodsResult
 } from "./models.js";
