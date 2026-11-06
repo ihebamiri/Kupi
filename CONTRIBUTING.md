@@ -11,7 +11,7 @@ Thanks for helping. Kupi manages real clusters, often production ones, so the ba
 
 ## Getting started
 
-You need Go 1.26 or newer, Node 22 and the Wails v3 CLI; on Linux also `libgtk-3-dev` and `libwebkit2gtk-4.1-dev`. Docker and k3d are needed for the integration tests.
+You need Go 1.26 or newer, Node 22 and the Wails v3 CLI; on Linux also `libgtk-4-dev` and `libwebkitgtk-6.0-dev`. Docker and k3d are needed for the integration tests.
 
 ```bash
 go install github.com/wailsapp/wails/v3/cmd/wails3@latest

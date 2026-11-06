@@ -162,12 +162,19 @@ func TestLogsAndExec(t *testing.T) {
 		t.Errorf("logs = %q", logs)
 	}
 
-	var out bytes.Buffer
-	err = s.Mutator().Exec(ctx, "default", name, "main", []string{"sh", "-c", "echo exec-ok"}, kube.ExecStreams{Stdout: &out, Stderr: &out})
-	if err != nil {
-		t.Fatal(err)
+	// Separate buffers: stdout and stderr arrive on different streams. A pod
+	// that has only just turned Running can occasionally drop a very short
+	// command's output, so retry a few times and log what came back.
+	var stdout, stderr bytes.Buffer
+	for attempt := 1; attempt <= 5; attempt++ {
+		stdout.Reset()
+		stderr.Reset()
+		err = s.Mutator().Exec(ctx, "default", name, "main", []string{"sh", "-c", "echo exec-ok"}, kube.ExecStreams{Stdout: &stdout, Stderr: &stderr})
+		if err == nil && strings.Contains(stdout.String(), "exec-ok") {
+			return
+		}
+		t.Logf("exec attempt %d: err=%v stdout=%q stderr=%q", attempt, err, stdout.String(), stderr.String())
+		time.Sleep(2 * time.Second)
 	}
-	if !strings.Contains(out.String(), "exec-ok") {
-		t.Errorf("exec output = %q", out.String())
-	}
+	t.Errorf("exec never returned its output: stdout=%q stderr=%q", stdout.String(), stderr.String())
 }

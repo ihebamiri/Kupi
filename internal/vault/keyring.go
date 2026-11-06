@@ -37,25 +37,27 @@ func (s OSKeyStore) key() string {
 	return s.Key
 }
 
+// backend picks the first allowed password store that actually opens. Being
+// compiled in isn't enough: on Linux the Secret Service backend is always
+// listed, even when no keyring daemon runs (servers, CI, minimal desktops).
 func (OSKeyStore) backend() (keyring.BackendType, bool) {
 	available := map[keyring.BackendType]bool{}
 	for _, b := range keyring.AvailableBackends() {
 		available[b] = true
 	}
 	for _, b := range allowedBackends {
-		if available[b] {
+		if !available[b] {
+			continue
+		}
+		if _, err := keyring.Open(config(b)); err == nil {
 			return b, true
 		}
 	}
 	return "", false
 }
 
-func (s OSKeyStore) open() (keyring.Keyring, error) {
-	b, ok := s.backend()
-	if !ok {
-		return nil, errors.New("no password store is available")
-	}
-	return keyring.Open(keyring.Config{
+func config(b keyring.BackendType) keyring.Config {
+	return keyring.Config{
 		ServiceName:     keyringService,
 		AllowedBackends: []keyring.BackendType{b},
 		// The user's default collection, so no extra keyring password prompt.
@@ -63,7 +65,15 @@ func (s OSKeyStore) open() (keyring.Keyring, error) {
 		KWalletAppID:            keyringService,
 		KWalletFolder:           keyringService,
 		WinCredPrefix:           keyringService,
-	})
+	}
+}
+
+func (s OSKeyStore) open() (keyring.Keyring, error) {
+	b, ok := s.backend()
+	if !ok {
+		return nil, errors.New("no password store is available")
+	}
+	return keyring.Open(config(b))
 }
 
 // Available names the password store Kupi would use.

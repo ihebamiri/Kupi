@@ -90,7 +90,7 @@ An opt-in terminal with your own shell (PowerShell, bash…), switched on throug
 | Platform | Get it | Needs |
 |---|---|---|
 | Windows 10/11 (x64) | [Releases](https://github.com/ihebamiri/Kupi/releases): unzip and run `kupi.exe` | Microsoft Edge WebView2 (built into Windows 11) |
-| Linux (x64) | Coming soon; build from source meanwhile | WebKitGTK 4.1 and GTK 3 |
+| Linux (x64) | Coming soon; build from source meanwhile | GTK 4 and WebKitGTK 6.0 |
 
 Kupi reads your kubeconfig (`KUBECONFIG` or `~/.kube/config`) and never edits it. It supports Kubernetes 1.34 to 1.37. kubectl, Helm and Docker are optional: Kupi has its own Kubernetes client and Helm, and uses Docker or Podman only for local images and k3d clusters.
 
@@ -112,7 +112,7 @@ The full model is in [How Kupi works](docs/ARCHITECTURE.md#10-security-model). T
 
 ## Build from source
 
-Requirements: Go 1.26 or newer, Node 22, the [Wails v3](https://v3.wails.io) CLI, and on Linux `libgtk-3-dev` and `libwebkit2gtk-4.1-dev`.
+Requirements: Go 1.26 or newer, Node 22, the [Wails v3](https://v3.wails.io) CLI, and on Linux `libgtk-4-dev` and `libwebkitgtk-6.0-dev`.
 
 ```bash
 go install github.com/wailsapp/wails/v3/cmd/wails3@latest
