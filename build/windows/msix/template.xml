@@ -10,13 +10,13 @@
     <Installer
         Path="kupi.exe"
         Arguments=""
-        InstallLocation="C:\Program Files\Kupi contributors\Kupi">
+        InstallLocation="C:\Program Files\Iheb Amiri\Kupi">
     </Installer>
     <PackageInformation
         PackageName="Kupi"
         PackageDisplayName="Kupi"
-        PublisherName="CN=Kupi contributors"
-        PublisherDisplayName="Kupi contributors"
+        PublisherName="CN=Iheb Amiri"
+        PublisherDisplayName="Iheb Amiri"
         Version="0.1.0.0"
         PackageDescription="Kubernetes Pilot: a desktop app for managing Kubernetes clusters">
         <Capabilities>
@@ -42,7 +42,7 @@
         <Properties>
             <Framework>false</Framework>
             <DisplayName>Kupi</DisplayName>
-            <PublisherDisplayName>Kupi contributors</PublisherDisplayName>
+            <PublisherDisplayName>Iheb Amiri</PublisherDisplayName>
             <Description>Kubernetes Pilot: a desktop app for managing Kubernetes clusters</Description>
             <Logo>Assets\AppIcon.png</Logo>
         </Properties>

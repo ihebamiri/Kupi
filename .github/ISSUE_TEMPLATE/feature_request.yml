@@ -1,0 +1,30 @@
+name: Feature request
+description: Suggest something Kupi should do.
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What are you trying to do, and what makes it hard today?
+      placeholder: When I roll out a new version, I can't see …
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: What you'd like
+      description: How you imagine it working in Kupi.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What you do today
+      description: Workarounds, or how other tools handle it.
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety
+      options:
+        - label: This would change clusters or show Secret values (so it needs to go through Kupi's preview, confirmation and audit log).

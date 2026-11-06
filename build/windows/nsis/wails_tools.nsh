@@ -8,7 +8,7 @@
     !define INFO_PROJECTNAME "kupi"
 !endif
 !ifndef INFO_COMPANYNAME
-    !define INFO_COMPANYNAME "Kupi contributors"
+    !define INFO_COMPANYNAME "Iheb Amiri"
 !endif
 !ifndef INFO_PRODUCTNAME
     !define INFO_PRODUCTNAME "Kupi"
@@ -17,7 +17,7 @@
     !define INFO_PRODUCTVERSION "0.1.0"
 !endif
 !ifndef INFO_COPYRIGHT
-    !define INFO_COPYRIGHT "Copyright 2026 Kupi contributors"
+    !define INFO_COPYRIGHT "Copyright 2026 Iheb Amiri"
 !endif
 !ifndef PRODUCT_EXECUTABLE
     !define PRODUCT_EXECUTABLE "${INFO_PROJECTNAME}.exe"

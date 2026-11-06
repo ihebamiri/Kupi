@@ -3,11 +3,11 @@
 version: '3'
 
 info:
-  companyName: "Kupi contributors"
+  companyName: "Iheb Amiri"
   productName: "Kupi"
   productIdentifier: "io.github.ihebamiri.kupi"
   description: "Kubernetes Pilot: a desktop app for managing Kubernetes clusters"
-  copyright: "Copyright 2026 Kupi contributors. Licensed under Apache 2.0."
+  copyright: "Copyright 2026 Iheb Amiri. Licensed under Apache 2.0."
   comments: "Kupi - Kubernetes Pilot"
   version: "0.1.0"
 

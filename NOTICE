@@ -1,0 +1,7 @@
+Kupi (Kubernetes Pilot)
+Copyright 2026 Iheb Amiri
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+It bundles open-source components under their own licenses: Wails, the Kubernetes
+client libraries, the Helm SDK, age, keyring, React, CodeMirror, xterm.js, React Flow
+and others listed in go.mod and frontend/package.json.

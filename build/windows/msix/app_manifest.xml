@@ -9,13 +9,13 @@
   
   <Identity 
     Name="io.github.ihebamiri.kupi"
-    Publisher="CN=Kupi contributors"
+    Publisher="CN=Iheb Amiri"
     Version="0.1.0.0"
     ProcessorArchitecture="x64" />
   
   <Properties>
     <DisplayName>Kupi</DisplayName>
-    <PublisherDisplayName>Kupi contributors</PublisherDisplayName>
+    <PublisherDisplayName>Iheb Amiri</PublisherDisplayName>
     <Description>Kubernetes Pilot: a desktop app for managing Kubernetes clusters</Description>
     <Logo>Assets\StoreLogo.png</Logo>
   </Properties>

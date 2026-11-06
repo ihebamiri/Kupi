@@ -7,9 +7,9 @@
 		"0409": {
 			"FileVersion": "0.1.0",
 			"ProductVersion": "0.1.0",
-			"CompanyName": "Kupi contributors",
+			"CompanyName": "Iheb Amiri",
 			"FileDescription": "Kubernetes Pilot: a desktop app for managing Kubernetes clusters",
-			"LegalCopyright": "Copyright 2026 Kupi contributors",
+			"LegalCopyright": "Copyright 2026 Iheb Amiri",
 			"ProductName": "Kupi",
 			"Comments": "Kupi - Kubernetes Pilot"
 		}
