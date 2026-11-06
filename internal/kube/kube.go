@@ -36,10 +36,10 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
 
-	"github.com/iheb-amiri/kupi/internal/kubeconfig"
-	"github.com/iheb-amiri/kupi/internal/profile"
-	"github.com/iheb-amiri/kupi/internal/trust"
-	"github.com/iheb-amiri/kupi/internal/version"
+	"github.com/ihebamiri/kupi/internal/kubeconfig"
+	"github.com/ihebamiri/kupi/internal/profile"
+	"github.com/ihebamiri/kupi/internal/trust"
+	"github.com/ihebamiri/kupi/internal/version"
 )
 
 // FieldManager is the server-side apply field manager for every Kupi change.

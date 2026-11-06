@@ -6,7 +6,7 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/iheb-amiri/kupi/internal/engine"
+	"github.com/ihebamiri/kupi/internal/engine"
 )
 
 // Minimum caps: below these k3s can't run reliably.

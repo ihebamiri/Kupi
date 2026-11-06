@@ -9,10 +9,10 @@ import (
 	rspb "helm.sh/helm/v4/pkg/release/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	"github.com/iheb-amiri/kupi/internal/helmrel"
-	"github.com/iheb-amiri/kupi/internal/kube"
-	"github.com/iheb-amiri/kupi/internal/profile"
-	"github.com/iheb-amiri/kupi/internal/validate"
+	"github.com/ihebamiri/kupi/internal/helmrel"
+	"github.com/ihebamiri/kupi/internal/kube"
+	"github.com/ihebamiri/kupi/internal/profile"
+	"github.com/ihebamiri/kupi/internal/validate"
 )
 
 // Helm actions, as recorded in the audit log.

@@ -22,68 +22,68 @@ import * as localk8s$0 from "../localk8s/models.js";
  * never switches the current kubectl context.
  */
 export function Create(o: localk8s$0.CreateOptions): $CancellablePromise<string> {
-    return $Call.ByID(2226259877, o);
+    return $Call.ByID(3208953432, o);
 }
 
 /**
  * Delete removes a k3d cluster and everything in it.
  */
 export function Delete(name: string): $CancellablePromise<string> {
-    return $Call.ByID(1273040386, name);
+    return $Call.ByID(4230968839, name);
 }
 
 /**
  * LaptopStatus returns a cluster's laptop-mode settings.
  */
 export function LaptopStatus(name: string): $CancellablePromise<laptop$0.Status> {
-    return $Call.ByID(1947418943, name);
+    return $Call.ByID(3770406890, name);
 }
 
 /**
  * List returns the k3d clusters on this machine.
  */
 export function List(): $CancellablePromise<localk8s$0.Cluster[] | null> {
-    return $Call.ByID(1480985577);
+    return $Call.ByID(75397204);
 }
 
 /**
  * SetIdleStop stops a cluster after minutes without Kupi using it; 0 turns it off.
  */
 export function SetIdleStop(name: string, minutes: number): $CancellablePromise<void> {
-    return $Call.ByID(3262028753, name, minutes);
+    return $Call.ByID(639431302, name, minutes);
 }
 
 /**
  * SetLimits caps each node of a k3d cluster: memory in MB and CPUs; 0 lifts a cap.
  */
 export function SetLimits(name: string, memoryMB: number, cpus: number): $CancellablePromise<void> {
-    return $Call.ByID(643015215, name, memoryMB, cpus);
+    return $Call.ByID(1349792396, name, memoryMB, cpus);
 }
 
 /**
  * Start starts a stopped k3d cluster.
  */
 export function Start(name: string): $CancellablePromise<string> {
-    return $Call.ByID(4131826327, name);
+    return $Call.ByID(12461536, name);
 }
 
 /**
  * Stop stops a k3d cluster, freeing its memory and CPU.
  */
 export function Stop(name: string): $CancellablePromise<string> {
-    return $Call.ByID(856589181, name);
+    return $Call.ByID(1738629412, name);
 }
 
 /**
  * Tools reports which local-cluster CLIs are installed.
  */
 export function Tools(): $CancellablePromise<localk8s$0.Tool[] | null> {
-    return $Call.ByID(440800068);
+    return $Call.ByID(2897930623);
 }
 
 /**
  * Usage measures how much memory and CPU a k3d cluster takes from this machine.
  */
 export function Usage(name: string): $CancellablePromise<localk8s$0.Usage> {
-    return $Call.ByID(3450983136, name);
+    return $Call.ByID(271284675, name);
 }

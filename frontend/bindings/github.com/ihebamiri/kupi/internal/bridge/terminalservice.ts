@@ -22,14 +22,14 @@ import * as $models from "./models.js";
  * Close ends a terminal's shell.
  */
 export function Close(id: string): $CancellablePromise<void> {
-    return $Call.ByID(3864862326, id);
+    return $Call.ByID(2660314009, id);
 }
 
 /**
  * Input sends keystrokes or pasted text to a terminal.
  */
 export function Input(id: string, data: string): $CancellablePromise<void> {
-    return $Call.ByID(1407791198, id, data);
+    return $Call.ByID(725170273, id, data);
 }
 
 /**
@@ -37,26 +37,26 @@ export function Input(id: string, data: string): $CancellablePromise<void> {
  * kubectl and helm in it use that context and namespace.
  */
 export function Open(shellID: string, contextName: string, $namespace: string, cols: number, rows: number): $CancellablePromise<$models.TerminalSession> {
-    return $Call.ByID(3648683602, shellID, contextName, $namespace, cols, rows);
+    return $Call.ByID(2492813455, shellID, contextName, $namespace, cols, rows);
 }
 
 /**
  * Resize changes a terminal's size.
  */
 export function Resize(id: string, cols: number, rows: number): $CancellablePromise<void> {
-    return $Call.ByID(1772858222, id, cols, rows);
+    return $Call.ByID(2878979323, id, cols, rows);
 }
 
 /**
  * Shells lists the shells installed on this computer.
  */
 export function Shells(): $CancellablePromise<terminal$0.Shell[] | null> {
-    return $Call.ByID(1743254813);
+    return $Call.ByID(2427906860);
 }
 
 /**
  * Tools checks which tools are installed (cached for a minute).
  */
 export function Tools(contextName: string): $CancellablePromise<$models.ToolsReport> {
-    return $Call.ByID(2622408501, contextName);
+    return $Call.ByID(2886174106, contextName);
 }

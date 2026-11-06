@@ -22,35 +22,35 @@ import * as $models from "./models.js";
  * CopyValue puts one value on the clipboard without sending it to the UI.
  */
 export function CopyValue(item: string, key: string): $CancellablePromise<void> {
-    return $Call.ByID(2579988550, item, key);
+    return $Call.ByID(1311113743, item, key);
 }
 
 /**
  * Create makes a new vault. mode is "keyring" or "passphrase".
  */
 export function Create(mode: string, passphrase: string): $CancellablePromise<void> {
-    return $Call.ByID(5617056, mode, passphrase);
+    return $Call.ByID(394240487, mode, passphrase);
 }
 
 /**
  * DeleteItem removes an item.
  */
 export function DeleteItem(name: string): $CancellablePromise<void> {
-    return $Call.ByID(2350799608, name);
+    return $Call.ByID(175604339, name);
 }
 
 /**
  * Items lists items and their key names.
  */
 export function Items(): $CancellablePromise<vault$0.ItemInfo[] | null> {
-    return $Call.ByID(892839208);
+    return $Call.ByID(661238993);
 }
 
 /**
  * Lock forgets the decrypted values now.
  */
 export function Lock(): $CancellablePromise<void> {
-    return $Call.ByID(2775287483);
+    return $Call.ByID(3748706744);
 }
 
 /**
@@ -59,40 +59,40 @@ export function Lock(): $CancellablePromise<void> {
  * Guard like any other change.
  */
 export function PrepareSecret(contextName: string, $namespace: string, secretName: string, item: string, secretType: string): $CancellablePromise<$models.PlanView> {
-    return $Call.ByID(644191255, contextName, $namespace, secretName, item, secretType);
+    return $Call.ByID(2388490122, contextName, $namespace, secretName, item, secretType);
 }
 
 /**
  * Reset deletes the vault and its key for good.
  */
 export function Reset(confirm: string): $CancellablePromise<void> {
-    return $Call.ByID(128065907, confirm);
+    return $Call.ByID(2809967342, confirm);
 }
 
 /**
  * Reveal returns one value.
  */
 export function Reveal(item: string, key: string): $CancellablePromise<string> {
-    return $Call.ByID(2267337561, item, key);
+    return $Call.ByID(1586001538, item, key);
 }
 
 /**
  * SaveItem creates an item or changes some of its values.
  */
 export function SaveItem(name: string, description: string, $set: { [_ in string]?: string } | null, del: string[] | null): $CancellablePromise<void> {
-    return $Call.ByID(3285002378, name, description, $set, del);
+    return $Call.ByID(1414068225, name, description, $set, del);
 }
 
 /**
  * Status reports whether the vault exists and is unlocked.
  */
 export function Status(): $CancellablePromise<vault$0.Status> {
-    return $Call.ByID(1934651902);
+    return $Call.ByID(2059356073);
 }
 
 /**
  * Unlock decrypts the vault.
  */
 export function Unlock(passphrase: string): $CancellablePromise<void> {
-    return $Call.ByID(127730032, passphrase);
+    return $Call.ByID(236712759, passphrase);
 }

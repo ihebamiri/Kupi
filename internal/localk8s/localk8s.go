@@ -18,7 +18,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/iheb-amiri/kupi/internal/procutil"
+	"github.com/ihebamiri/kupi/internal/procutil"
 )
 
 var (

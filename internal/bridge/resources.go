@@ -16,12 +16,12 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/yaml"
 
-	"github.com/iheb-amiri/kupi/internal/catalog"
-	"github.com/iheb-amiri/kupi/internal/guard"
-	"github.com/iheb-amiri/kupi/internal/kube"
-	"github.com/iheb-amiri/kupi/internal/live"
-	"github.com/iheb-amiri/kupi/internal/redact"
-	"github.com/iheb-amiri/kupi/internal/validate"
+	"github.com/ihebamiri/kupi/internal/catalog"
+	"github.com/ihebamiri/kupi/internal/guard"
+	"github.com/ihebamiri/kupi/internal/kube"
+	"github.com/ihebamiri/kupi/internal/live"
+	"github.com/ihebamiri/kupi/internal/redact"
+	"github.com/ihebamiri/kupi/internal/validate"
 )
 
 var (

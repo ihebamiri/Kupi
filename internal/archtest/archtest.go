@@ -36,7 +36,7 @@ var shells = map[string]bool{
 	"cmd": true, "cmd.exe": true, "powershell": true, "powershell.exe": true, "pwsh": true, "pwsh.exe": true,
 }
 
-const terminalImport = "github.com/iheb-amiri/kupi/internal/terminal"
+const terminalImport = "github.com/ihebamiri/kupi/internal/terminal"
 
 // commandFlags make a shell run a command instead of being interactive.
 var commandFlags = map[string]bool{

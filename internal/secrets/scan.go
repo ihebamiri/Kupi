@@ -11,7 +11,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
-	"github.com/iheb-amiri/kupi/internal/kube"
+	"github.com/ihebamiri/kupi/internal/kube"
 )
 
 // Severity of a scan finding.

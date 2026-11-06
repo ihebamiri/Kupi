@@ -15,9 +15,9 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation"
 	"sigs.k8s.io/yaml"
 
-	"github.com/iheb-amiri/kupi/internal/guard"
-	kschema "github.com/iheb-amiri/kupi/internal/schema"
-	"github.com/iheb-amiri/kupi/internal/validate"
+	"github.com/ihebamiri/kupi/internal/guard"
+	kschema "github.com/ihebamiri/kupi/internal/schema"
+	"github.com/ihebamiri/kupi/internal/validate"
 )
 
 // ParseResult is a YAML document converted to JSON, or why it couldn't be.

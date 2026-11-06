@@ -5,10 +5,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/iheb-amiri/kupi/internal/audit"
-	"github.com/iheb-amiri/kupi/internal/settings"
-	"github.com/iheb-amiri/kupi/internal/terminal"
-	"github.com/iheb-amiri/kupi/internal/trust"
+	"github.com/ihebamiri/kupi/internal/audit"
+	"github.com/ihebamiri/kupi/internal/settings"
+	"github.com/ihebamiri/kupi/internal/terminal"
+	"github.com/ihebamiri/kupi/internal/trust"
 )
 
 // SettingsView is the settings plus the facts the Settings page shows.

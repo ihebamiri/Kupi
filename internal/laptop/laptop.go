@@ -12,7 +12,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iheb-amiri/kupi/internal/appdir"
+	"github.com/ihebamiri/kupi/internal/appdir"
 )
 
 // MaxIdleMinutes is the longest idle timeout offered (one day).

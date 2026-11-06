@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/iheb-amiri/kupi/internal/guard"
-	"github.com/iheb-amiri/kupi/internal/helmrel"
-	"github.com/iheb-amiri/kupi/internal/validate"
+	"github.com/ihebamiri/kupi/internal/guard"
+	"github.com/ihebamiri/kupi/internal/helmrel"
+	"github.com/ihebamiri/kupi/internal/validate"
 )
 
 const maxValuesBytes = 1 << 20

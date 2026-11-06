@@ -1,4 +1,4 @@
-module github.com/iheb-amiri/kupi
+module github.com/ihebamiri/kupi
 
 go 1.26.0
 

@@ -6,7 +6,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/iheb-amiri/kupi/internal/kube"
+	"github.com/ihebamiri/kupi/internal/kube"
 )
 
 // Category is a sidebar group.

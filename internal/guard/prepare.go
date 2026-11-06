@@ -12,9 +12,9 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	"github.com/iheb-amiri/kupi/internal/kube"
-	"github.com/iheb-amiri/kupi/internal/profile"
-	"github.com/iheb-amiri/kupi/internal/validate"
+	"github.com/ihebamiri/kupi/internal/kube"
+	"github.com/ihebamiri/kupi/internal/profile"
+	"github.com/ihebamiri/kupi/internal/validate"
 )
 
 // ApplyRequest creates or updates an object with server-side apply.

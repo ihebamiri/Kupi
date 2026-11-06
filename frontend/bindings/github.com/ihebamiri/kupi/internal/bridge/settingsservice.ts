@@ -23,21 +23,21 @@ import * as $models from "./models.js";
  * terminal on. It reports whether the terminal is now on.
  */
 export function EnableTerminal(): $CancellablePromise<boolean> {
-    return $Call.ByID(3012084320);
+    return $Call.ByID(895658093);
 }
 
 /**
  * Get returns the settings and related facts.
  */
 export function Get(): $CancellablePromise<$models.SettingsView> {
-    return $Call.ByID(2598086985);
+    return $Call.ByID(1944629286);
 }
 
 /**
  * Reset returns every setting to its default. The terminal goes off.
  */
 export function Reset(): $CancellablePromise<settings$0.Settings> {
-    return $Call.ByID(1278106014);
+    return $Call.ByID(4244260973);
 }
 
 /**
@@ -45,5 +45,5 @@ export function Reset(): $CancellablePromise<settings$0.Settings> {
  * here, but only EnableTerminal switches it on.
  */
 export function Save(next: settings$0.Settings): $CancellablePromise<settings$0.Settings> {
-    return $Call.ByID(4030717786, next);
+    return $Call.ByID(2269037399, next);
 }

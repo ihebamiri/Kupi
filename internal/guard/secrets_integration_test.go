@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iheb-amiri/kupi/internal/guard"
-	"github.com/iheb-amiri/kupi/internal/secrets"
+	"github.com/ihebamiri/kupi/internal/guard"
+	"github.com/ihebamiri/kupi/internal/secrets"
 )
 
 // TestSecretWritesAgainstK3d creates a Secret, changes one key, removes

@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/iheb-amiri/kupi/internal/history"
-	"github.com/iheb-amiri/kupi/internal/incident"
-	"github.com/iheb-amiri/kupi/internal/validate"
+	"github.com/ihebamiri/kupi/internal/history"
+	"github.com/ihebamiri/kupi/internal/incident"
+	"github.com/ihebamiri/kupi/internal/validate"
 )
 
 // HistoryQuery filters recorded history. Empty fields match everything.

@@ -18,28 +18,28 @@ import * as $models from "./models.js";
  * Containers lists a pod's containers with their status.
  */
 export function Containers(contextName: string, $namespace: string, pod: string): $CancellablePromise<$models.ContainerView[] | null> {
-    return $Call.ByID(2576325674, contextName, $namespace, pod);
+    return $Call.ByID(1831843107, contextName, $namespace, pod);
 }
 
 /**
  * Events lists the events about one object, newest first.
  */
 export function Events(contextName: string, $namespace: string, uid: string): $CancellablePromise<$models.EventView[] | null> {
-    return $Call.ByID(1018347371, contextName, $namespace, uid);
+    return $Call.ByID(2979035570, contextName, $namespace, uid);
 }
 
 /**
  * GetYAML returns one object as YAML, with Secret values hidden.
  */
 export function GetYAML(contextName: string, ref: $models.ResourceRef): $CancellablePromise<string> {
-    return $Call.ByID(1112514953, contextName, ref);
+    return $Call.ByID(264097754, contextName, ref);
 }
 
 /**
  * List returns objects of one type with the columns kubectl get shows.
  */
 export function List(contextName: string, t: $models.TypeRef, $namespace: string, labelSelector: string): $CancellablePromise<$models.TableView> {
-    return $Call.ByID(1538376442, contextName, t, $namespace, labelSelector);
+    return $Call.ByID(1149353791, contextName, t, $namespace, labelSelector);
 }
 
 /**
@@ -47,26 +47,26 @@ export function List(contextName: string, t: $models.TypeRef, $namespace: string
  * returns an empty list, and the UI falls back to the context's namespace.
  */
 export function Namespaces(contextName: string): $CancellablePromise<string[] | null> {
-    return $Call.ByID(3161797706, contextName);
+    return $Call.ByID(128074523, contextName);
 }
 
 /**
  * Types lists the cluster's resource types, grouped for the sidebar.
  */
 export function Types(contextName: string): $CancellablePromise<$models.ResourceTypeView[] | null> {
-    return $Call.ByID(1423596935, contextName);
+    return $Call.ByID(3880523156, contextName);
 }
 
 /**
  * Unwatch stops a watch.
  */
 export function Unwatch(id: string): $CancellablePromise<void> {
-    return $Call.ByID(2743682656, id);
+    return $Call.ByID(3608860547, id);
 }
 
 /**
  * Watch tells the UI (event "kupi:changed") when a list changes.
  */
 export function Watch(contextName: string, t: $models.TypeRef, $namespace: string, resourceVersion: string): $CancellablePromise<string> {
-    return $Call.ByID(403854445, contextName, t, $namespace, resourceVersion);
+    return $Call.ByID(1490470670, contextName, t, $namespace, resourceVersion);
 }

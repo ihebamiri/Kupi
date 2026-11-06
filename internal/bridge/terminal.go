@@ -19,11 +19,11 @@ import (
 
 	"sigs.k8s.io/yaml"
 
-	"github.com/iheb-amiri/kupi/internal/appdir"
-	"github.com/iheb-amiri/kupi/internal/audit"
-	"github.com/iheb-amiri/kupi/internal/procutil"
-	"github.com/iheb-amiri/kupi/internal/terminal"
-	"github.com/iheb-amiri/kupi/internal/validate"
+	"github.com/ihebamiri/kupi/internal/appdir"
+	"github.com/ihebamiri/kupi/internal/audit"
+	"github.com/ihebamiri/kupi/internal/procutil"
+	"github.com/ihebamiri/kupi/internal/terminal"
+	"github.com/ihebamiri/kupi/internal/validate"
 )
 
 // ErrTerminalOff is returned while the terminal is switched off.

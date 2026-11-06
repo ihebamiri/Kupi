@@ -8,7 +8,7 @@ import (
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 
-	"github.com/iheb-amiri/kupi/internal/buildmode"
+	"github.com/ihebamiri/kupi/internal/buildmode"
 )
 
 // nativeConfirm asks a question in a native OS dialog. Page scripts can

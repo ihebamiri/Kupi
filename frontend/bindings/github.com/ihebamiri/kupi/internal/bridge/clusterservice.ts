@@ -18,35 +18,35 @@ import * as $models from "./models.js";
  * Connect opens a session to a context.
  */
 export function Connect(contextName: string): $CancellablePromise<$models.Connection> {
-    return $Call.ByID(791839924, contextName);
+    return $Call.ByID(302149373, contextName);
 }
 
 /**
  * Disconnect closes a session and drops its editing state and pending plans.
  */
 export function Disconnect(contextName: string): $CancellablePromise<void> {
-    return $Call.ByID(2412117224, contextName);
+    return $Call.ByID(2702589311, contextName);
 }
 
 /**
  * ListContexts describes every kubeconfig context.
  */
 export function ListContexts(): $CancellablePromise<$models.ContextInfo[] | null> {
-    return $Call.ByID(3216695274);
+    return $Call.ByID(1155077101);
 }
 
 /**
  * RevokeTrust forgets a trusted kubeconfig file.
  */
 export function RevokeTrust(file: string): $CancellablePromise<void> {
-    return $Call.ByID(1525901182, file);
+    return $Call.ByID(1446253531, file);
 }
 
 /**
  * SetEditing switches changes on or off for a connected context.
  */
 export function SetEditing(contextName: string, enabled: boolean, reason: string): $CancellablePromise<void> {
-    return $Call.ByID(3114855230, contextName, enabled, reason);
+    return $Call.ByID(783264037, contextName, enabled, reason);
 }
 
 /**
@@ -54,7 +54,7 @@ export function SetEditing(contextName: string, enabled: boolean, reason: string
  * The context is disconnected so the new rules apply from the next connect.
  */
 export function SetProfile(contextName: string, kind: string): $CancellablePromise<void> {
-    return $Call.ByID(1230866243, contextName, kind);
+    return $Call.ByID(2651083408, contextName, kind);
 }
 
 /**
@@ -62,5 +62,5 @@ export function SetProfile(contextName: string, kind: string): $CancellablePromi
  * kubeconfig files, pinned to its current contents.
  */
 export function TrustKubeconfig(file: string): $CancellablePromise<void> {
-    return $Call.ByID(3955735219, file);
+    return $Call.ByID(3348359850, file);
 }

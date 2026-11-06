@@ -12,7 +12,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 
-	"github.com/iheb-amiri/kupi/internal/kube"
+	"github.com/ihebamiri/kupi/internal/kube"
 )
 
 // maxPodsOf caps how many pods PodsOf returns.

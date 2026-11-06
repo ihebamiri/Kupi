@@ -10,10 +10,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iheb-amiri/kupi/internal/kube"
-	"github.com/iheb-amiri/kupi/internal/kubeconfig"
-	"github.com/iheb-amiri/kupi/internal/profile"
-	"github.com/iheb-amiri/kupi/internal/trust"
+	"github.com/ihebamiri/kupi/internal/kube"
+	"github.com/ihebamiri/kupi/internal/kubeconfig"
+	"github.com/ihebamiri/kupi/internal/profile"
+	"github.com/ihebamiri/kupi/internal/trust"
 )
 
 const testContext = "k3d-kupi-test"

@@ -24,14 +24,14 @@ import * as $models from "./models.js";
  * it is saved.
  */
 export function CheckCertificate(certPEM: string, keyPEM: string): $CancellablePromise<secrets$0.TLSInfo> {
-    return $Call.ByID(303792437, certPEM, keyPEM);
+    return $Call.ByID(1841652052, certPEM, keyPEM);
 }
 
 /**
  * CopyEnv puts every value on the clipboard as a .env file.
  */
 export function CopyEnv(contextName: string, $namespace: string, name: string, reason: string): $CancellablePromise<$models.EnvCopy> {
-    return $Call.ByID(2576001594, contextName, $namespace, name, reason);
+    return $Call.ByID(4082519161, contextName, $namespace, name, reason);
 }
 
 /**
@@ -39,21 +39,21 @@ export function CopyEnv(contextName: string, $namespace: string, name: string, r
  * UI, and clears it again after the time set in Settings.
  */
 export function CopyValue(contextName: string, $namespace: string, name: string, key: string, reason: string): $CancellablePromise<void> {
-    return $Call.ByID(3762539820, contextName, $namespace, name, key, reason);
+    return $Call.ByID(2953266887, contextName, $namespace, name, key, reason);
 }
 
 /**
  * Describe returns a Secret's keys, certificate details, owner and users.
  */
 export function Describe(contextName: string, $namespace: string, name: string): $CancellablePromise<$models.SecretView> {
-    return $Call.ByID(3837130779, contextName, $namespace, name);
+    return $Call.ByID(1318866746, contextName, $namespace, name);
 }
 
 /**
  * PrepareRegistry previews writing a registry login Secret for image pulls.
  */
 export function PrepareRegistry(contextName: string, $namespace: string, name: string, server: string, username: string, password: string, email: string): $CancellablePromise<$models.PlanView> {
-    return $Call.ByID(1640205458, contextName, $namespace, name, server, username, password, email);
+    return $Call.ByID(493009817, contextName, $namespace, name, server, username, password, email);
 }
 
 /**
@@ -61,26 +61,26 @@ export function PrepareRegistry(contextName: string, $namespace: string, name: s
  * after checking they belong together.
  */
 export function PrepareTLS(contextName: string, $namespace: string, name: string, certPEM: string, keyPEM: string): $CancellablePromise<$models.PlanView> {
-    return $Call.ByID(1140310046, contextName, $namespace, name, certPEM, keyPEM);
+    return $Call.ByID(2911080219, contextName, $namespace, name, certPEM, keyPEM);
 }
 
 /**
  * PrepareWrite previews creating a Secret or changing some of its keys.
  */
 export function PrepareWrite(contextName: string, req: $models.SecretWriteRequest): $CancellablePromise<$models.PlanView> {
-    return $Call.ByID(1734517320, contextName, req);
+    return $Call.ByID(1046548653, contextName, req);
 }
 
 /**
  * Reveal returns one value, after writing the access to the audit log.
  */
 export function Reveal(contextName: string, $namespace: string, name: string, key: string, reason: string): $CancellablePromise<$models.RevealedValue> {
-    return $Call.ByID(1210600815, contextName, $namespace, name, key, reason);
+    return $Call.ByID(3223574154, contextName, $namespace, name, key, reason);
 }
 
 /**
  * Scan looks for credentials stored in the open in a namespace ("" for all).
  */
 export function Scan(contextName: string, $namespace: string): $CancellablePromise<secrets$0.ScanResult> {
-    return $Call.ByID(2730947519, contextName, $namespace);
+    return $Call.ByID(3079328910, contextName, $namespace);
 }

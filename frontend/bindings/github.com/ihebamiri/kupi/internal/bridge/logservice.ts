@@ -18,12 +18,12 @@ import * as $models from "./models.js";
  * Start begins streaming and returns the stream's id.
  */
 export function Start(contextName: string, req: $models.LogRequest): $CancellablePromise<string> {
-    return $Call.ByID(1752494770, contextName, req);
+    return $Call.ByID(1069263747, contextName, req);
 }
 
 /**
  * Stop ends a log stream.
  */
 export function Stop(id: string): $CancellablePromise<void> {
-    return $Call.ByID(262448370, id);
+    return $Call.ByID(487076113, id);
 }

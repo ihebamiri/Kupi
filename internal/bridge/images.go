@@ -14,11 +14,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iheb-amiri/kupi/internal/audit"
-	"github.com/iheb-amiri/kupi/internal/engine"
-	"github.com/iheb-amiri/kupi/internal/localk8s"
-	"github.com/iheb-amiri/kupi/internal/profile"
-	"github.com/iheb-amiri/kupi/internal/version"
+	"github.com/ihebamiri/kupi/internal/audit"
+	"github.com/ihebamiri/kupi/internal/engine"
+	"github.com/ihebamiri/kupi/internal/localk8s"
+	"github.com/ihebamiri/kupi/internal/profile"
+	"github.com/ihebamiri/kupi/internal/version"
 )
 
 // EventPull carries image pull progress.

@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/iheb-amiri/kupi/internal/gitops"
-	"github.com/iheb-amiri/kupi/internal/guard"
-	"github.com/iheb-amiri/kupi/internal/validate"
+	"github.com/ihebamiri/kupi/internal/gitops"
+	"github.com/ihebamiri/kupi/internal/guard"
+	"github.com/ihebamiri/kupi/internal/validate"
 )
 
 // OwnerView says which GitOps app manages an object, and that app's state.

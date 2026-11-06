@@ -27,7 +27,7 @@ import (
 
 	"filippo.io/age"
 
-	"github.com/iheb-amiri/kupi/internal/appdir"
+	"github.com/ihebamiri/kupi/internal/appdir"
 )
 
 // Mode is where the vault key is kept.

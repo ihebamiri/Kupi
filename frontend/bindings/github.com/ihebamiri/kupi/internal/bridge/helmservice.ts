@@ -23,14 +23,14 @@ import * as $models from "./models.js";
  * PrepareRollback previews rolling a release back to an earlier revision.
  */
 export function PrepareRollback(contextName: string, $namespace: string, name: string, revision: number): $CancellablePromise<$models.PlanView> {
-    return $Call.ByID(3741710265, contextName, $namespace, name, revision);
+    return $Call.ByID(78175314, contextName, $namespace, name, revision);
 }
 
 /**
  * PrepareUninstall previews uninstalling a release.
  */
 export function PrepareUninstall(contextName: string, $namespace: string, name: string): $CancellablePromise<$models.PlanView> {
-    return $Call.ByID(378071365, contextName, $namespace, name);
+    return $Call.ByID(2986014060, contextName, $namespace, name);
 }
 
 /**
@@ -38,21 +38,21 @@ export function PrepareUninstall(contextName: string, $namespace: string, name: 
  * same chart. valuesYAML is the complete set of user-supplied values.
  */
 export function PrepareUpgrade(contextName: string, $namespace: string, name: string, valuesYAML: string): $CancellablePromise<$models.PlanView> {
-    return $Call.ByID(1971958595, contextName, $namespace, name, valuesYAML);
+    return $Call.ByID(2249083202, contextName, $namespace, name, valuesYAML);
 }
 
 /**
  * Release returns a release's details and history.
  */
 export function Release(contextName: string, $namespace: string, name: string): $CancellablePromise<$models.ReleaseDetail> {
-    return $Call.ByID(2247548147, contextName, $namespace, name);
+    return $Call.ByID(2898702356, contextName, $namespace, name);
 }
 
 /**
  * Releases lists the latest revision of every release in a namespace ("" for all).
  */
 export function Releases(contextName: string, $namespace: string): $CancellablePromise<helmrel$0.Release[] | null> {
-    return $Call.ByID(1671241088, contextName, $namespace);
+    return $Call.ByID(1674031653, contextName, $namespace);
 }
 
 /**
@@ -60,5 +60,5 @@ export function Releases(contextName: string, $namespace: string): $CancellableP
  * after recording the access: they often hold passwords.
  */
 export function Values(contextName: string, $namespace: string, name: string, reason: string): $CancellablePromise<string> {
-    return $Call.ByID(2307404536, contextName, $namespace, name, reason);
+    return $Call.ByID(1162615429, contextName, $namespace, name, reason);
 }

@@ -13,7 +13,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/iheb-amiri/kupi/internal/appdir"
+	"github.com/ihebamiri/kupi/internal/appdir"
 )
 
 // Kind is a cluster profile.

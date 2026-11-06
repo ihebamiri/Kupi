@@ -11,11 +11,11 @@ import (
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	"github.com/iheb-amiri/kupi/internal/kube"
-	"github.com/iheb-amiri/kupi/internal/kubeconfig"
-	"github.com/iheb-amiri/kupi/internal/profile"
-	kschema "github.com/iheb-amiri/kupi/internal/schema"
-	"github.com/iheb-amiri/kupi/internal/trust"
+	"github.com/ihebamiri/kupi/internal/kube"
+	"github.com/ihebamiri/kupi/internal/kubeconfig"
+	"github.com/ihebamiri/kupi/internal/profile"
+	kschema "github.com/ihebamiri/kupi/internal/schema"
+	"github.com/ihebamiri/kupi/internal/trust"
 )
 
 func find(n *kschema.Node, name string) *kschema.Node {

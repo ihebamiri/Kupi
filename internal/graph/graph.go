@@ -18,7 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	"github.com/iheb-amiri/kupi/internal/kube"
+	"github.com/ihebamiri/kupi/internal/kube"
 )
 
 // Health of a node.

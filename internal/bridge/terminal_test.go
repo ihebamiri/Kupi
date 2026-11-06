@@ -9,9 +9,9 @@ import (
 
 	"sigs.k8s.io/yaml"
 
-	"github.com/iheb-amiri/kupi/internal/audit"
-	"github.com/iheb-amiri/kupi/internal/settings"
-	"github.com/iheb-amiri/kupi/internal/terminal"
+	"github.com/ihebamiri/kupi/internal/audit"
+	"github.com/ihebamiri/kupi/internal/settings"
+	"github.com/ihebamiri/kupi/internal/terminal"
 )
 
 func settingsDeps(t *testing.T) Deps {

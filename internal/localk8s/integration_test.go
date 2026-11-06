@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iheb-amiri/kupi/internal/engine"
+	"github.com/ihebamiri/kupi/internal/engine"
 )
 
 // TestLoadImageIntoK3d loads a local-only tag into the kupi-test cluster and

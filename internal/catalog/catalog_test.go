@@ -3,7 +3,7 @@ package catalog
 import (
 	"testing"
 
-	"github.com/iheb-amiri/kupi/internal/kube"
+	"github.com/ihebamiri/kupi/internal/kube"
 )
 
 func TestBuild(t *testing.T) {

@@ -22,26 +22,26 @@ import * as $models from "./models.js";
  * List returns all forwards.
  */
 export function List(): $CancellablePromise<forward$0.Forward[] | null> {
-    return $Call.ByID(2887671961);
+    return $Call.ByID(2343717062);
 }
 
 /**
  * Ports lists the ports a Pod, Service or workload exposes.
  */
 export function Ports(contextName: string, kind: string, $namespace: string, name: string): $CancellablePromise<$models.PortOption[] | null> {
-    return $Call.ByID(3280800839, contextName, kind, $namespace, name);
+    return $Call.ByID(2537053858, contextName, kind, $namespace, name);
 }
 
 /**
  * Start begins a forward on 127.0.0.1. localPort 0 picks one.
  */
 export function Start(contextName: string, t: forward$0.Target, localPort: number): $CancellablePromise<forward$0.Forward> {
-    return $Call.ByID(3985325415, contextName, t, localPort);
+    return $Call.ByID(4263970098, contextName, t, localPort);
 }
 
 /**
  * Stop ends a forward.
  */
 export function Stop(id: string): $CancellablePromise<void> {
-    return $Call.ByID(2807211917, id);
+    return $Call.ByID(3311392882, id);
 }

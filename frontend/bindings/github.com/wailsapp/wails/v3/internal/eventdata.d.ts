@@ -7,16 +7,16 @@ import type { Events } from "@wailsio/runtime";
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
-import type * as bridge$0 from "../../../../iheb-amiri/kupi/internal/bridge/models.js";
+import type * as bridge$0 from "../../../../ihebamiri/kupi/internal/bridge/models.js";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
-import type * as forward$0 from "../../../../iheb-amiri/kupi/internal/forward/models.js";
+import type * as forward$0 from "../../../../ihebamiri/kupi/internal/forward/models.js";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
-import type * as live$0 from "../../../../iheb-amiri/kupi/internal/live/models.js";
+import type * as live$0 from "../../../../ihebamiri/kupi/internal/live/models.js";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
-import type * as terminal$0 from "../../../../iheb-amiri/kupi/internal/terminal/models.js";
+import type * as terminal$0 from "../../../../ihebamiri/kupi/internal/terminal/models.js";
 
 declare module "@wailsio/runtime" {
     namespace Events {

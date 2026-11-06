@@ -18,7 +18,7 @@ import * as $models from "./models.js";
  * Info returns the version and platform.
  */
 export function Info(): $CancellablePromise<$models.AppInfo> {
-    return $Call.ByID(1032674295);
+    return $Call.ByID(3436397128);
 }
 
 /**
@@ -26,5 +26,5 @@ export function Info(): $CancellablePromise<$models.AppInfo> {
  * clicked in the terminal. The UI asks the user first.
  */
 export function OpenURL(link: string): $CancellablePromise<void> {
-    return $Call.ByID(2416998216, link);
+    return $Call.ByID(1970003085, link);
 }

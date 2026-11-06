@@ -9,11 +9,11 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	"github.com/iheb-amiri/kupi/internal/audit"
-	"github.com/iheb-amiri/kupi/internal/forward"
-	"github.com/iheb-amiri/kupi/internal/kube"
-	"github.com/iheb-amiri/kupi/internal/metrics"
-	"github.com/iheb-amiri/kupi/internal/validate"
+	"github.com/ihebamiri/kupi/internal/audit"
+	"github.com/ihebamiri/kupi/internal/forward"
+	"github.com/ihebamiri/kupi/internal/kube"
+	"github.com/ihebamiri/kupi/internal/metrics"
+	"github.com/ihebamiri/kupi/internal/validate"
 )
 
 var forwardIDRe = regexp.MustCompile(`^[0-9a-f]{24}$`)

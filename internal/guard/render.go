@@ -9,8 +9,8 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/yaml"
 
-	"github.com/iheb-amiri/kupi/internal/diff"
-	"github.com/iheb-amiri/kupi/internal/redact"
+	"github.com/ihebamiri/kupi/internal/diff"
+	"github.com/ihebamiri/kupi/internal/redact"
 )
 
 const (

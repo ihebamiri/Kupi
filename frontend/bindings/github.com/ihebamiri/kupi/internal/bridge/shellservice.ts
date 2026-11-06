@@ -18,33 +18,33 @@ import * as $models from "./models.js";
  * Close ends a session.
  */
 export function Close(id: string): $CancellablePromise<void> {
-    return $Call.ByID(2795501734, id);
+    return $Call.ByID(3302672879, id);
 }
 
 /**
  * Input sends base64-encoded keystrokes to a session.
  */
 export function Input(id: string, data: string): $CancellablePromise<void> {
-    return $Call.ByID(2893923534, id, data);
+    return $Call.ByID(1567691447, id, data);
 }
 
 /**
  * Open starts a prepared shell and returns the session id.
  */
 export function Open(planID: string, reason: string, cols: number, rows: number): $CancellablePromise<string> {
-    return $Call.ByID(1413744482, planID, reason, cols, rows);
+    return $Call.ByID(29997453, planID, reason, cols, rows);
 }
 
 /**
  * Prepare checks that a shell can be opened and what confirmation it needs.
  */
 export function Prepare(contextName: string, $namespace: string, pod: string, container: string): $CancellablePromise<$models.PlanView> {
-    return $Call.ByID(1874477425, contextName, $namespace, pod, container);
+    return $Call.ByID(574284368, contextName, $namespace, pod, container);
 }
 
 /**
  * Resize tells a session the terminal's size.
  */
 export function Resize(id: string, cols: number, rows: number): $CancellablePromise<void> {
-    return $Call.ByID(3501259518, id, cols, rows);
+    return $Call.ByID(2237224669, id, cols, rows);
 }

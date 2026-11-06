@@ -23,14 +23,14 @@ import * as $models from "./models.js";
  * HelmRelease the user can see.
  */
 export function Overview(contextName: string): $CancellablePromise<gitops$0.Overview | null> {
-    return $Call.ByID(3251768381, contextName);
+    return $Call.ByID(419125616, contextName);
 }
 
 /**
  * OwnerOf reports the GitOps app that manages an object, if any.
  */
 export function OwnerOf(contextName: string, ref: $models.ResourceRef): $CancellablePromise<$models.OwnerView> {
-    return $Call.ByID(3548532484, contextName, ref);
+    return $Call.ByID(4022223411, contextName, ref);
 }
 
 /**
@@ -38,5 +38,5 @@ export function OwnerOf(contextName: string, ref: $models.ResourceRef): $Cancell
  * or sync (Argo CD), reconcile, suspend or resume (Flux).
  */
 export function PrepareAction(contextName: string, kind: string, $namespace: string, name: string, action: string): $CancellablePromise<$models.PlanView> {
-    return $Call.ByID(3000575575, contextName, kind, $namespace, name, action);
+    return $Call.ByID(2512558992, contextName, kind, $namespace, name, action);
 }

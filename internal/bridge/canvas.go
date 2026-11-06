@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/iheb-amiri/kupi/internal/graph"
-	"github.com/iheb-amiri/kupi/internal/validate"
+	"github.com/ihebamiri/kupi/internal/graph"
+	"github.com/ihebamiri/kupi/internal/validate"
 )
 
 // CanvasService builds the Observe canvas.

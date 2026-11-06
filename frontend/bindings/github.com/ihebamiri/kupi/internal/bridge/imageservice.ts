@@ -22,28 +22,28 @@ import * as $models from "./models.js";
  * DiskUsage reports the engine's disk use.
  */
 export function DiskUsage(): $CancellablePromise<engine$0.DiskUsage> {
-    return $Call.ByID(1650578451);
+    return $Call.ByID(497548646);
 }
 
 /**
  * Engine reports the local engine.
  */
 export function Engine(): $CancellablePromise<$models.EngineInfo> {
-    return $Call.ByID(3060776195);
+    return $Call.ByID(526345272);
 }
 
 /**
  * Images lists local images, largest first.
  */
 export function Images(): $CancellablePromise<$models.ImageView[] | null> {
-    return $Call.ByID(2392529763);
+    return $Call.ByID(3828588444);
 }
 
 /**
  * Inspect describes one image and its layers.
  */
 export function Inspect(ref: string): $CancellablePromise<$models.ImageDetailView> {
-    return $Call.ByID(2413420447, ref);
+    return $Call.ByID(157905174, ref);
 }
 
 /**
@@ -51,47 +51,47 @@ export function Inspect(ref: string): $CancellablePromise<$models.ImageDetailVie
  * can run it without a registry. Only clusters labelled local qualify.
  */
 export function LoadIntoCluster(contextName: string, ref: string): $CancellablePromise<string> {
-    return $Call.ByID(4267125255, contextName, ref);
+    return $Call.ByID(328858942, contextName, ref);
 }
 
 /**
  * Prune removes dangling images, or all unused images when all is set.
  */
 export function Prune(all: boolean): $CancellablePromise<number> {
-    return $Call.ByID(480149391, all);
+    return $Call.ByID(3854569758, all);
 }
 
 /**
  * PruneBuildCache removes unused build cache.
  */
 export function PruneBuildCache(): $CancellablePromise<number> {
-    return $Call.ByID(366402501);
+    return $Call.ByID(2538611140);
 }
 
 /**
  * Pull starts downloading an image; progress arrives as "kupi:pull" events.
  */
 export function Pull(ref: string): $CancellablePromise<string> {
-    return $Call.ByID(2149979254, ref);
+    return $Call.ByID(967552281, ref);
 }
 
 /**
  * Remove deletes a local image.
  */
 export function Remove(ref: string, force: boolean): $CancellablePromise<void> {
-    return $Call.ByID(2147424245, ref, force);
+    return $Call.ByID(3769702118, ref, force);
 }
 
 /**
  * Search finds images on Docker Hub through the engine.
  */
 export function Search(term: string): $CancellablePromise<$models.SearchView[] | null> {
-    return $Call.ByID(657084337, term);
+    return $Call.ByID(221133546, term);
 }
 
 /**
  * Tags lists the most recently updated tags of a Docker Hub repository.
  */
 export function Tags(repo: string): $CancellablePromise<$models.TagView[] | null> {
-    return $Call.ByID(2588353048, repo);
+    return $Call.ByID(4022623755, repo);
 }

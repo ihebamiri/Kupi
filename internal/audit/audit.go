@@ -16,7 +16,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iheb-amiri/kupi/internal/appdir"
+	"github.com/ihebamiri/kupi/internal/appdir"
 )
 
 // Outcome of an audited action.

@@ -7,9 +7,9 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/iheb-amiri/kupi/internal/guard"
-	"github.com/iheb-amiri/kupi/internal/secrets"
-	"github.com/iheb-amiri/kupi/internal/validate"
+	"github.com/ihebamiri/kupi/internal/guard"
+	"github.com/ihebamiri/kupi/internal/secrets"
+	"github.com/ihebamiri/kupi/internal/validate"
 )
 
 const (

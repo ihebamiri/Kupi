@@ -143,7 +143,7 @@ var bash = []string{"--login", "-c"}
 	if p := CheckGo("internal/feature/x.go", []byte(src)); len(p) != 0 {
 		t.Errorf("the flag rule is only for the terminal package: %v", p)
 	}
-	imp := "package x\nimport _ \"github.com/iheb-amiri/kupi/internal/terminal\"\n"
+	imp := "package x\nimport _ \"github.com/ihebamiri/kupi/internal/terminal\"\n"
 	if p := CheckGo("internal/feature/x.go", []byte(imp)); len(p) != 1 || !strings.Contains(p[0], "only internal/bridge") {
 		t.Errorf("terminal import: %v", p)
 	}

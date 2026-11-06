@@ -16,8 +16,8 @@ import (
 	utilyaml "k8s.io/apimachinery/pkg/util/yaml"
 	"sigs.k8s.io/yaml"
 
-	"github.com/iheb-amiri/kupi/internal/diff"
-	"github.com/iheb-amiri/kupi/internal/redact"
+	"github.com/ihebamiri/kupi/internal/diff"
+	"github.com/ihebamiri/kupi/internal/redact"
 )
 
 // Release summarises one revision of a release.

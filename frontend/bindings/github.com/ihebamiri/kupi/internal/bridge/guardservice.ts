@@ -18,14 +18,14 @@ import * as $models from "./models.js";
  * Cancel discards a prepared change.
  */
 export function Cancel(planID: string): $CancellablePromise<void> {
-    return $Call.ByID(154515247, planID);
+    return $Call.ByID(3104030600, planID);
 }
 
 /**
  * Commit runs a prepared change.
  */
 export function Commit(planID: string, reason: string, typedName: string): $CancellablePromise<$models.CommitResult> {
-    return $Call.ByID(2425675672, planID, reason, typedName);
+    return $Call.ByID(3748907255, planID, reason, typedName);
 }
 
 /**
@@ -34,26 +34,26 @@ export function Commit(planID: string, reason: string, typedName: string): $Canc
  * object and applied together.
  */
 export function PrepareApply(contextName: string, manifest: string, forceConflicts: boolean): $CancellablePromise<$models.PlanView> {
-    return $Call.ByID(3379160948, contextName, manifest, forceConflicts);
+    return $Call.ByID(2795749719, contextName, manifest, forceConflicts);
 }
 
 /**
  * PrepareDelete previews deleting an object.
  */
 export function PrepareDelete(contextName: string, ref: $models.ResourceRef): $CancellablePromise<$models.PlanView> {
-    return $Call.ByID(1200380123, contextName, ref);
+    return $Call.ByID(2058647622, contextName, ref);
 }
 
 /**
  * PrepareRestart previews a rolling restart.
  */
 export function PrepareRestart(contextName: string, ref: $models.ResourceRef): $CancellablePromise<$models.PlanView> {
-    return $Call.ByID(1513206891, contextName, ref);
+    return $Call.ByID(2354153304, contextName, ref);
 }
 
 /**
  * PrepareScale previews changing a workload's replica count.
  */
 export function PrepareScale(contextName: string, ref: $models.ResourceRef, replicas: number): $CancellablePromise<$models.PlanView> {
-    return $Call.ByID(3256332162, contextName, ref, replicas);
+    return $Call.ByID(2897797317, contextName, ref, replicas);
 }

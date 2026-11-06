@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/iheb-amiri/kupi/internal/audit"
-	"github.com/iheb-amiri/kupi/internal/engine"
-	"github.com/iheb-amiri/kupi/internal/laptop"
-	"github.com/iheb-amiri/kupi/internal/localk8s"
-	"github.com/iheb-amiri/kupi/internal/profile"
+	"github.com/ihebamiri/kupi/internal/audit"
+	"github.com/ihebamiri/kupi/internal/engine"
+	"github.com/ihebamiri/kupi/internal/laptop"
+	"github.com/ihebamiri/kupi/internal/localk8s"
+	"github.com/ihebamiri/kupi/internal/profile"
 )
 
 // NewLaptop opens laptop mode with hooks into the rest of Kupi: a cluster

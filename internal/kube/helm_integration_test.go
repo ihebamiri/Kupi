@@ -18,9 +18,9 @@ import (
 	"helm.sh/helm/v4/pkg/chart/v2/loader"
 	helmkube "helm.sh/helm/v4/pkg/kube"
 
-	"github.com/iheb-amiri/kupi/internal/kubeconfig"
-	"github.com/iheb-amiri/kupi/internal/profile"
-	"github.com/iheb-amiri/kupi/internal/trust"
+	"github.com/ihebamiri/kupi/internal/kubeconfig"
+	"github.com/ihebamiri/kupi/internal/profile"
+	"github.com/ihebamiri/kupi/internal/trust"
 )
 
 // TestHelmLifecycle installs a tiny chart on kupi-test, then upgrades (dry

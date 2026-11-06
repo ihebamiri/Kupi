@@ -22,19 +22,19 @@ import * as $models from "./models.js";
  * Node returns one node's history.
  */
 export function Node(contextName: string, node: string): $CancellablePromise<$models.NodeMetrics> {
-    return $Call.ByID(3215704801, contextName, node);
+    return $Call.ByID(3954528054, contextName, node);
 }
 
 /**
  * Overview returns node usage and the busiest pods.
  */
 export function Overview(contextName: string, $namespace: string): $CancellablePromise<metrics$0.Overview> {
-    return $Call.ByID(505337982, contextName, $namespace);
+    return $Call.ByID(3197985145, contextName, $namespace);
 }
 
 /**
  * Pod returns one pod's history plus its summed requests and limits.
  */
 export function Pod(contextName: string, $namespace: string, pod: string): $CancellablePromise<$models.PodMetrics> {
-    return $Call.ByID(170002712, contextName, $namespace, pod);
+    return $Call.ByID(115946245, contextName, $namespace, pod);
 }

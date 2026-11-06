@@ -6,7 +6,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
-	"github.com/iheb-amiri/kupi/internal/gitops"
+	"github.com/ihebamiri/kupi/internal/gitops"
 )
 
 // GitOps actions. Each one asks the tool to do its own work; Kupi never

@@ -19,7 +19,7 @@ import * as $models from "./models.js";
  * form; several come back as a list of names.
  */
 export function FromYAML(manifest: string): $CancellablePromise<$models.ParseResult> {
-    return $Call.ByID(4112698723, manifest);
+    return $Call.ByID(1632614470, manifest);
 }
 
 /**
@@ -27,7 +27,7 @@ export function FromYAML(manifest: string): $CancellablePromise<$models.ParseRes
  * for fields such as configMapKeyRef.key and secretKeyRef.key.
  */
 export function Keys(contextName: string, resource: string, $namespace: string, name: string): $CancellablePromise<string[] | null> {
-    return $Call.ByID(940447480, contextName, resource, $namespace, name);
+    return $Call.ByID(3584993013, contextName, resource, $namespace, name);
 }
 
 /**
@@ -35,7 +35,7 @@ export function Keys(contextName: string, resource: string, $namespace: string, 
  * the editor can warn about a Service or Deployment that selects nothing.
  */
 export function MatchingPods(contextName: string, $namespace: string, selector: { [_ in string]?: string } | null): $CancellablePromise<number> {
-    return $Call.ByID(2569097499, contextName, $namespace, selector);
+    return $Call.ByID(641098010, contextName, $namespace, selector);
 }
 
 /**
@@ -44,7 +44,7 @@ export function MatchingPods(contextName: string, $namespace: string, selector: 
  * editor so values never pass through a plain text field.
  */
 export function Object(contextName: string, ref: $models.ResourceRef): $CancellablePromise<string> {
-    return $Call.ByID(1072323131, contextName, ref);
+    return $Call.ByID(506311106, contextName, ref);
 }
 
 /**
@@ -52,7 +52,7 @@ export function Object(contextName: string, ref: $models.ResourceRef): $Cancella
  * own OpenAPI schema, so custom resources get forms too.
  */
 export function Schema(contextName: string, group: string, version: string, kind: string): $CancellablePromise<string> {
-    return $Call.ByID(1857376615, contextName, group, version, kind);
+    return $Call.ByID(3831261086, contextName, group, version, kind);
 }
 
 /**
@@ -60,12 +60,12 @@ export function Schema(contextName: string, group: string, version: string, kind
  * drop-down lists. Namespace is ignored for cluster-wide types.
  */
 export function Suggest(contextName: string, resource: string, $namespace: string): $CancellablePromise<string[] | null> {
-    return $Call.ByID(2100893718, contextName, resource, $namespace);
+    return $Call.ByID(1832112317, contextName, resource, $namespace);
 }
 
 /**
  * ToYAML renders a JSON object as YAML.
  */
 export function ToYAML(objectJSON: string): $CancellablePromise<string> {
-    return $Call.ByID(888554174, objectJSON);
+    return $Call.ByID(2139335899, objectJSON);
 }

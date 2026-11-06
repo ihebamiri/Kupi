@@ -11,7 +11,7 @@ import (
 	"regexp"
 	"sync"
 
-	"github.com/iheb-amiri/kupi/internal/appdir"
+	"github.com/ihebamiri/kupi/internal/appdir"
 )
 
 // Snippet is a saved terminal command. It's typed into the terminal when
