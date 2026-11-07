@@ -260,7 +260,7 @@ Each step says what to do (**Do**) and what you should see (**Expect**).
   kubectl --context k3d-kupi-test -n kupi-demo run probe --rm -i --restart=Never --image=busybox:1.36 -- wget -qO- -T 3 http://hello.kupi-multi
   ```
 
-  Expect: "download timed out".
+  Expect: "can't connect to remote host … Connection refused" (k3s rejects blocked connections; other network plugins drop them, and wget says "download timed out").
 - [ ] **E13.** Do: close the traffic panel (×), then **Replay** → **last 24 hours**. Expect: "N changes recorded", the newest selected, and the changed object highlighted on the map with what changed it (for example "changed by Kupi"). Use the arrows and the slider, then **Play**: it steps forward every 1.5 seconds and the map follows. Close the replay bar.
 
 ### F. Port forwards

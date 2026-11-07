@@ -66,6 +66,43 @@ func TestObserveRecordsOnlyRealChanges(t *testing.T) {
 	}
 }
 
+// kubectl scale and autoscalers write through the scale subresource, whose
+// managedFields entry has no time (as seen on k3s 1.35).
+func TestScaleWritesAreCreditedToTheScaler(t *testing.T) {
+	store := Open(t.TempDir())
+	defer store.Close()
+	w := &typeWatch{rec: NewRecorder(store), run: &run{}, contextName: "c", t: Types[0], snaps: map[string]snapshot{}}
+
+	applied := metav1.NewTime(time.Date(2026, 11, 7, 18, 15, 9, 0, time.UTC))
+	obj := func(image string, replicas int64, rv string, entries ...metav1.ManagedFieldsEntry) *unstructured.Unstructured {
+		u := deploy(image, replicas, "", rv)
+		u.SetManagedFields(append([]metav1.ManagedFieldsEntry{
+			{Manager: "k3s", Operation: metav1.ManagedFieldsOperationUpdate, Subresource: "status", Time: &applied},
+		}, entries...))
+		return u
+	}
+	apply := metav1.ManagedFieldsEntry{Manager: "kubectl-client-side-apply", Operation: metav1.ManagedFieldsOperationUpdate, Time: &applied}
+	scale := metav1.ManagedFieldsEntry{Manager: "kubectl.exe", Operation: metav1.ManagedFieldsOperationUpdate, Subresource: "scale"}
+
+	w.snaps["shop/api"] = w.snapshotOf(obj("api:1", 2, "1", apply))
+	w.observe(watch.Modified, obj("api:1", 3, "2", scale, apply))
+	later := metav1.NewTime(applied.Add(time.Minute))
+	reapply := apply
+	reapply.Time = &later
+	w.observe(watch.Modified, obj("api:2", 3, "3", scale, reapply))
+
+	changes, err := store.Changes("c", Query{})
+	if err != nil || len(changes) != 2 {
+		t.Fatalf("changes = %+v, %v", changes, err)
+	}
+	if changes[1].Manager != "kubectl.exe" {
+		t.Errorf("scale credited to %q", changes[1].Manager)
+	}
+	if changes[0].Manager != "kubectl-client-side-apply" {
+		t.Errorf("later apply credited to %q", changes[0].Manager)
+	}
+}
+
 func TestSecretValueChangesAreNotedWithoutValues(t *testing.T) {
 	store := Open(t.TempDir())
 	defer store.Close()

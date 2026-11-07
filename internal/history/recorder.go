@@ -182,6 +182,9 @@ type snapshot struct {
 	// rv is kept for metadata-only types, whose value changes show only as
 	// a new resourceVersion.
 	rv string
+	// newest is the time of the newest timestamped write, to tell which
+	// manager made the next change (see writer).
+	newest time.Time
 }
 
 type typeWatch struct {
@@ -343,7 +346,7 @@ func (w *typeWatch) observe(kind watch.EventType, obj *unstructured.Unstructured
 	}
 	next := w.snapshotOf(obj)
 	w.snaps[k] = next
-	c.Manager = lastManager(obj)
+	c.Manager = writer(obj, prev, known)
 	switch {
 	case !known:
 		c.Action = ActionCreated
@@ -377,6 +380,7 @@ func (w *typeWatch) snapshotOf(obj *unstructured.Unstructured) snapshot {
 	if w.t.MetadataOnly {
 		s.rv = obj.GetResourceVersion()
 	}
+	_, s.newest = lastManager(obj)
 	return s
 }
 
@@ -420,16 +424,49 @@ func normalizedYAML(obj *unstructured.Unstructured) string {
 	return string(b)
 }
 
-// lastManager returns the field manager with the newest write to the
-// object itself (status writes by controllers don't count).
-func lastManager(obj *unstructured.Unstructured) string {
+// writer returns the field manager that most likely made the change just
+// observed. Most writes stamp a time on their managedFields entry, so the
+// newest one wins. Writes through the scale subresource (kubectl scale,
+// autoscalers) get no time from the API server; when no stamped entry is
+// newer than at the last snapshot, the change came from one of those.
+func writer(obj *unstructured.Unstructured, prev snapshot, known bool) string {
+	manager, newest := lastManager(obj)
+	if known && !newest.After(prev.newest) {
+		if m := scaleManager(obj); m != "" {
+			return m
+		}
+	}
+	return manager
+}
+
+// lastManager returns the field manager with the newest timestamped write
+// to the object (status writes by controllers don't count), and its time.
+func lastManager(obj *unstructured.Unstructured) (string, time.Time) {
 	best, bestTime := "", time.Time{}
 	for _, mf := range obj.GetManagedFields() {
-		if mf.Subresource != "" || mf.Time == nil {
+		if mf.Subresource == "status" || mf.Time == nil {
 			continue
 		}
 		if mf.Time.Time.After(bestTime) || (mf.Time.Time.Equal(bestTime) && mf.Manager > best) {
 			best, bestTime = mf.Manager, mf.Time.Time
+		}
+	}
+	return best, bestTime
+}
+
+// scaleManager returns the manager of the scale subresource's entry; with
+// several, the one with the newest time, or else the last listed.
+func scaleManager(obj *unstructured.Unstructured) string {
+	best, bestTime := "", time.Time{}
+	for _, mf := range obj.GetManagedFields() {
+		if mf.Subresource != "scale" {
+			continue
+		}
+		switch {
+		case mf.Time != nil && !mf.Time.Time.Before(bestTime):
+			best, bestTime = mf.Manager, mf.Time.Time
+		case mf.Time == nil && bestTime.IsZero():
+			best = mf.Manager
 		}
 	}
 	return best

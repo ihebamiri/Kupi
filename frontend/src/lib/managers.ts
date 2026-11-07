@@ -5,7 +5,9 @@
 const KNOWN: [RegExp, string][] = [
   [/^kupi$/, "Kupi"],
   [/^kubectl-client-side-apply$/, "kubectl apply"],
-  [/^kubectl$/, "kubectl apply --server-side"],
+  // kubectl names itself after its executable unless a command sets a
+  // manager: server-side apply, scale and others all show as plain kubectl.
+  [/^kubectl(\.exe)?$/, "kubectl"],
   [/^kubectl-(edit|patch|scale|rollout|label|annotate|set|create|replace|expose|autoscale)$/, "kubectl $1"],
   [/^helm$/, "Helm"],
   [/^argocd-(application-)?controller$/, "Argo CD"],

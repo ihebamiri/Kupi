@@ -252,6 +252,8 @@ Not verified on Linux yet: the vault (GNOME Keyring, KWallet and the passphrase 
 - **Replay** on the map steps through recorded changes, highlighting each object.
 - `docs/testdata/network-policies.yaml` and a unit test that checks the answers the testing guide promises.
 - Verified: unit tests (deny-all, named ports, port ranges, AND and OR peers, IP blocks, egress-only; Prometheus discovery, query building, injection refused, answer parsing), type-check and frontend tests.
+- Verified live on k3d, in a browser through server mode, with `docs/testdata/network-policies.yaml`: ticker → Service hello on port 80 shows Allowed (port 80 followed to pod port 8080, allowed by `hello-from-ticker`), and demo-web → hello shows Blocked by both policies. Real requests from the pods agree: ticker gets the nginx page, demo-web's connection is refused (k3s rejects blocked traffic). Replay listed the recorded changes and highlighted each on the map.
+- Bug found and fixed while testing replay: `kubectl scale` (and autoscalers) write through the scale subresource, whose managedFields entry has no time, so History credited the change to the previous writer ("kubectl apply"). The recorder now credits the scale entry when no timestamped entry moved. kubectl's default manager name (`kubectl`, or `kubectl.exe` on Windows) now reads "kubectl" instead of "kubectl apply --server-side", since many kubectl commands use it.
 - Not verified live: Prometheus in a cluster (testing guide J13).
 
 

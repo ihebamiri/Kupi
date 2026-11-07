@@ -5,6 +5,8 @@ describe("managerLabel", () => {
   it("names the common tools", () => {
     expect(managerLabel("kubectl-client-side-apply")).toBe("kubectl apply");
     expect(managerLabel("kubectl-edit")).toBe("kubectl edit");
+    expect(managerLabel("kubectl")).toBe("kubectl");
+    expect(managerLabel("kubectl.exe")).toBe("kubectl");
     expect(managerLabel("argocd-controller")).toBe("Argo CD");
     expect(managerLabel("kustomize-controller")).toBe("Flux");
     expect(managerLabel("kupi")).toBe("Kupi");
