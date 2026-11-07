@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Events } from "@wailsio/runtime";
-import { Download, PackagePlus, Rocket, Search, ShieldAlert, Star, Trash2, Upload } from "lucide-react";
+import { Download, PackagePlus, Rocket, Search, ShieldAlert, Star, Trash2, Upload, X } from "lucide-react";
 import { Dialog } from "../components/Dialog";
 import { ImageSecurity, RegistryLogins } from "../components/ImageSecurity";
 import { Badge, Button, Field, Notice, PageHeader, inputClass } from "../components/ui";
@@ -18,6 +18,7 @@ import {
 } from "../lib/api";
 import { age } from "../lib/format";
 import { isDockerHub } from "../lib/imageref";
+import { mergePull } from "../lib/pulls";
 import { formatBytes } from "../lib/units";
 import { useClusters } from "../state/clusters";
 import { useNav } from "../state/nav";
@@ -39,7 +40,7 @@ export function ImagesPage() {
   useEffect(() => {
     const off = Events.On(KupiPull, (event: { data: unknown }) => {
       const p = event.data as PullEvent;
-      setPulls((cur) => ({ ...cur, [p.id]: p }));
+      setPulls((cur) => mergePull(cur, p));
       if (p.done) setReload((n) => n + 1);
     });
     return () => {
@@ -79,7 +80,16 @@ export function ImagesPage() {
           </button>
         ))}
       </div>
-      <PullStatus pulls={pulls} />
+      <PullStatus
+        pulls={pulls}
+        onDismiss={(id) =>
+          setPulls((cur) => {
+            const next = { ...cur };
+            delete next[id];
+            return next;
+          })
+        }
+      />
       {engine?.available && tab === "local" && <LocalImages reload={reload} />}
       {engine?.available && tab === "find" && <FindImages />}
       {engine?.available && tab === "disk" && <DiskSpace />}
@@ -88,15 +98,23 @@ export function ImagesPage() {
   );
 }
 
-function PullStatus({ pulls }: { pulls: Record<string, PullEvent> }) {
-  const list = Object.values(pulls).filter((p) => !p.done || p.error);
+function PullStatus({ pulls, onDismiss }: { pulls: Record<string, PullEvent>; onDismiss: (id: string) => void }) {
+  const list = Object.values(pulls);
   if (list.length === 0) return null;
+  const dismiss = (id: string) => (
+    <button aria-label="Dismiss" className="ml-auto shrink-0 rounded p-0.5 text-muted hover:text-fg" onClick={() => onDismiss(id)}>
+      <X className="size-3.5" />
+    </button>
+  );
   return (
     <div className="mb-3 flex flex-col gap-2">
       {list.map((p) =>
-        p.error ? (
-          <Notice key={p.id} tone="bad">
-            Pulling {p.ref} failed: {p.error}
+        p.done ? (
+          <Notice key={p.id} tone={p.error ? "bad" : "good"}>
+            <div className="flex items-start gap-2">
+              <span className="min-w-0 break-words">{p.error ? `Pulling ${p.ref} failed: ${p.error}` : `Pulled ${p.ref}.`}</span>
+              {dismiss(p.id)}
+            </div>
           </Notice>
         ) : (
           <div key={p.id} className="rounded-md border border-line bg-panel px-3 py-2 text-[13px]">
@@ -181,16 +199,23 @@ function LocalImages({ reload }: { reload: number }) {
                   <td className="px-3 py-2 text-muted">{age(img.created)}</td>
                   <td className="px-3 py-1.5">
                     <div className="flex justify-end gap-1">
-                      <Button variant="ghost" onClick={() => setDetails(ref)}>
+                      <Button variant="ghost" aria-label={`Details of ${ref}`} onClick={() => setDetails(ref)}>
                         Details
                       </Button>
                       {canLoad && !img.dangling && (
-                        <Button variant="ghost" busy={busy === ref} icon={<Upload className="size-4" />} onClick={() => void loadIntoCluster(ref)} title={`Copy into ${active?.name}`}>
+                        <Button
+                          variant="ghost"
+                          aria-label={`Load into cluster: ${ref}`}
+                          busy={busy === ref}
+                          icon={<Upload className="size-4" />}
+                          onClick={() => void loadIntoCluster(ref)}
+                          title={`Copy into ${active?.name}`}
+                        >
                           Load into cluster
                         </Button>
                       )}
                       {!img.dangling && active && (
-                        <Button variant="ghost" icon={<Rocket className="size-4" />} onClick={() => navigate({ page: "apply", fromImage: ref })}>
+                        <Button variant="ghost" aria-label={`Deploy ${ref}`} icon={<Rocket className="size-4" />} onClick={() => navigate({ page: "apply", fromImage: ref })}>
                           Deploy
                         </Button>
                       )}

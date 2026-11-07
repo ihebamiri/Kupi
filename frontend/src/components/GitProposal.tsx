@@ -23,7 +23,8 @@ export function GitOpsEditNotice({ contextName, target, manifest }: { contextNam
   }, [contextName, target]);
 
   if (!owner) return null;
-  const tool = owner.owner.tool === "argocd" ? "Argo CD" : "Flux";
+  // Go sends the tool's display name: "Argo CD" or "Flux".
+  const tool = owner.owner.tool;
 
   const propose = async () => {
     setBusy(true);

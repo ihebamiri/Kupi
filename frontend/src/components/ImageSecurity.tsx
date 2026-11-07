@@ -73,18 +73,24 @@ export function ImageSecurity({ refName }: { refName: string }) {
       {sig &&
         (sig.signed ? (
           <Notice tone="good" icon={<BadgeCheck className="size-4 text-good" />}>
-            <p className="font-medium">Signed. Check that the signer is the publisher you expect:</p>
-            <ul className="mt-1 flex flex-col gap-0.5 font-mono text-[12px] break-all">
-              {(sig.signatures ?? []).map((s, i) => (
-                <li key={i}>
-                  {s.identity || "(no identity)"} <span className="text-muted">via {s.issuer || "unknown issuer"}</span>
-                </li>
-              ))}
-            </ul>
+            {(sig.signatures ?? []).length > 0 ? (
+              <>
+                <p className="font-medium">Signed. Check that the signer is the publisher you expect:</p>
+                <ul className="mt-1 flex flex-col gap-0.5 font-mono text-[12px] break-all">
+                  {(sig.signatures ?? []).map((s, i) => (
+                    <li key={i}>
+                      {s.identity || "(no identity)"} <span className="text-muted">via {s.issuer || "unknown issuer"}</span>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            ) : (
+              <p className="font-medium">Signed, but cosign didn't say by whom. Check the publisher's documentation for how they sign.</p>
+            )}
           </Notice>
         ) : (
           <Notice tone="warn" icon={<ShieldQuestion className="size-4 text-warn" />}>
-            Not verified: {sig.problem || "no signature found"}. Images that only exist on this computer can't be checked; signatures live in the registry.
+            Not verified: {(sig.problem || "no signature found").replace(/\.$/, "")}. Images that only exist on this computer can't be checked; signatures live in the registry.
           </Notice>
         ))}
 

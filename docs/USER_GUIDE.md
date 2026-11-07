@@ -356,11 +356,11 @@ The vault keeps credentials **on your computer, encrypted**, so you don't need Y
 - **Load into cluster:** copies a local image into a local k3d, kind or minikube cluster, so pods can use it without a registry. Kupi checks the image really arrived on every node.
 - **Deploy:** opens the editor with a secure Deployment for the image.
 - **Disk usage:** remove untagged images, unused images, or the build cache.
-- **Registry logins** (tab): user names and passwords or tokens for private registries, kept encrypted in your [vault](#13-vault). Kupi uses the matching login when it pulls from that registry; pulls from other registries are anonymous.
+- **Registry logins** (tab): user names and passwords or tokens for private registries, kept encrypted in your [vault](#13-vault). Kupi uses the matching login when it pulls from that registry; pulls from other registries are anonymous. The vault must be unlocked for a login to be used; if a pull fails while it's locked, the message says so.
 - **Security** (in an image's details):
   - **Scan for vulnerabilities** runs [Trivy](https://trivy.dev) on your computer and lists known vulnerabilities, worst first, with the fixed version when there is one.
   - **Check signature** runs [cosign](https://www.sigstore.dev) to check the image's Sigstore signature, and shows who signed it. A valid signature only means *someone* signed it: check that the signer is the publisher you expect.
-  - Both tools are optional; install them and reopen the details. Nothing is uploaded by Kupi.
+  - Both tools are optional; install them and reopen the details (on Windows: `winget install --id AquaSecurity.Trivy -e` and `winget install --id Sigstore.Cosign -e`, then restart Kupi). Nothing is uploaded by Kupi. The first scan downloads Trivy's vulnerability database, which takes a few minutes.
 
 ---
 

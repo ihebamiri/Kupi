@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 	"time"
@@ -27,16 +28,21 @@ const (
 	maxFindings = 200
 )
 
-// lookPath finds a tool and insists on an absolute path.
+// lookPath finds a tool and insists on an absolute path. It also tries the
+// name with the platform suffix that release downloads keep: winget, for
+// one, installs cosign as cosign-windows-amd64.exe.
 func lookPath(name string) (string, error) {
-	p, err := exec.LookPath(name)
-	if err != nil {
-		return "", fmt.Errorf("%s is %w", name, ErrNotInstalled)
+	for _, n := range []string{name, name + "-" + runtime.GOOS + "-" + runtime.GOARCH} {
+		p, err := exec.LookPath(n)
+		if err != nil {
+			continue
+		}
+		if !filepath.IsAbs(p) {
+			return "", fmt.Errorf("%s resolved to a relative path", name)
+		}
+		return p, nil
 	}
-	if !filepath.IsAbs(p) {
-		return "", fmt.Errorf("%s resolved to a relative path", name)
-	}
-	return p, nil
+	return "", fmt.Errorf("%s is %w", name, ErrNotInstalled)
 }
 
 type capped struct {
@@ -218,7 +224,9 @@ func parseCosign(image string, out []byte) (*SignatureReport, error) {
 	for _, s := range sigs {
 		id, _ := s.Optional["Subject"].(string)
 		iss, _ := s.Optional["Issuer"].(string)
-		if seen[id+"|"+iss] {
+		// cosign 3 also lists signatures in the newer bundle format with no
+		// details; they count as signed but name nobody.
+		if (id == "" && iss == "") || seen[id+"|"+iss] {
 			continue
 		}
 		seen[id+"|"+iss] = true

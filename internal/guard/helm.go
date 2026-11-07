@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 
@@ -90,7 +91,12 @@ func chartLabel(r *rspb.Release) string {
 func manifestSummary(before, after, namespace string) []string {
 	a, _ := helmrel.Objects(before, namespace)
 	b, _ := helmrel.Objects(after, namespace)
-	key := func(kind, ns, name string) string { return kind + " " + ns + "/" + name }
+	key := func(kind, ns, name string) string {
+		if ns == "" {
+			return kind + " " + name
+		}
+		return kind + " " + ns + "/" + name
+	}
 	am := map[string]bool{}
 	for _, o := range a {
 		am[key(o.GetKind(), o.GetNamespace(), o.GetName())] = true
@@ -148,7 +154,7 @@ func (g *Guard) PrepareHelmUpgradeChart(ctx context.Context, t HelmTarget, value
 		if p.Diff == "" {
 			p.Warnings = append(p.Warnings, "This renders exactly the same objects. Helm will still record a new revision.")
 		}
-		p.Warnings = append(p.Warnings, hookWarnings(next)...)
+		p.Warnings = append(p.Warnings, hookWarnings(next, rspb.HookPreUpgrade, rspb.HookPostUpgrade)...)
 	}
 	what := fmt.Sprintf("with the edited values (%s, same chart)", chartLabel(cur))
 	if ch != nil && ch.Metadata != nil {
@@ -163,7 +169,7 @@ func (g *Guard) PrepareHelmUpgradeChart(ctx context.Context, t HelmTarget, value
 			p.Warnings = append(p.Warnings, "The chart's maintainers marked this version as deprecated.")
 		}
 	}
-	p.Summary = append([]string{fmt.Sprintf("Upgrades %s from revision %d %s.", p.Resource(), cur.Version, what)}, manifestSummaryOf(cur, next, t.Namespace)...)
+	p.Summary = append([]string{fmt.Sprintf("Upgrades %s (now at revision %d) %s.", p.Resource(), cur.Version, what)}, manifestSummaryOf(cur, next, t.Namespace)...)
 	p.Warnings = append(p.Warnings, "Kupi checked you may write Helm's release records. The upgrade can still fail if you can't change some of the release's objects.")
 	p.helmExec = func(ctx context.Context, m kube.HelmMutator) error {
 		_, err := m.HelmUpgrade(ctx, req, false)
@@ -266,7 +272,7 @@ func (g *Guard) PrepareHelmInstall(ctx context.Context, req HelmInstallRequest) 
 		p.Diff = helmrel.Diff("", next.Manifest, req.Namespace)
 		p.Summary = append([]string{fmt.Sprintf("Installs %s as %s, creating %d objects.", label, p.Resource(), len(objs))}, manifestSummary("", next.Manifest, req.Namespace)...)
 		p.Warnings = append(p.Warnings, g.installChecks(ctx, p, reader, objs)...)
-		p.Warnings = append(p.Warnings, hookWarnings(next)...)
+		p.Warnings = append(p.Warnings, hookWarnings(next, rspb.HookPreInstall, rspb.HookPostInstall)...)
 	}
 	if req.Chart.Metadata.Deprecated {
 		p.Warnings = append(p.Warnings, "The chart's maintainers marked this version as deprecated.")
@@ -318,7 +324,9 @@ func (g *Guard) installChecks(ctx context.Context, p *Plan, r kube.Reader, objs 
 }
 
 // hookWarnings lists the hooks (usually Jobs) Helm runs around the change.
-func hookWarnings(r *rspb.Release) []string {
+// hookWarnings lists the release's hooks that run for the given events.
+// Others, such as test hooks (run only by "helm test"), are left out.
+func hookWarnings(r *rspb.Release, when ...rspb.HookEvent) []string {
 	if r == nil || len(r.Hooks) == 0 {
 		return nil
 	}
@@ -326,9 +334,17 @@ func hookWarnings(r *rspb.Release) []string {
 	for _, h := range r.Hooks {
 		var events []string
 		for _, e := range h.Events {
-			events = append(events, string(e))
+			if slices.Contains(when, e) {
+				events = append(events, string(e))
+			}
+		}
+		if len(events) == 0 {
+			continue
 		}
 		names = append(names, fmt.Sprintf("%s %s (%s)", h.Kind, h.Name, strings.Join(events, ", ")))
+	}
+	if len(names) == 0 {
+		return nil
 	}
 	sort.Strings(names)
 	return []string{fmt.Sprintf("Helm will also run %d hook(s), which aren't in the diff: %s.", len(names), strings.Join(names, "; "))}

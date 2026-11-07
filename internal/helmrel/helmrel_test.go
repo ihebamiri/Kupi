@@ -62,6 +62,18 @@ func TestDiffHidesSecretsAndPairsObjects(t *testing.T) {
 	}
 }
 
+// Seen with the prometheus chart: its ClusterRole has no namespace and
+// must not get the release's.
+func TestClusterScopedObjectsGetNoNamespace(t *testing.T) {
+	objs, err := Objects("kind: ClusterRole\nmetadata:\n  name: prometheus-server\n---\nkind: ConfigMap\nmetadata:\n  name: prometheus-server\n", "monitoring")
+	if err != nil || len(objs) != 2 {
+		t.Fatalf("objects = %v, %v", objs, err)
+	}
+	if objs[0].GetNamespace() != "" || objs[1].GetNamespace() != "monitoring" {
+		t.Errorf("namespaces = %q, %q", objs[0].GetNamespace(), objs[1].GetNamespace())
+	}
+}
+
 func TestValuesRoundTrip(t *testing.T) {
 	vals, err := ParseValues("replicaCount: 2\nimage:\n  tag: v2\n")
 	if err != nil || vals["replicaCount"] != float64(2) {

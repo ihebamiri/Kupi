@@ -218,7 +218,8 @@ Not verified on Linux yet: the vault (GNOME Keyring, KWallet and the passphrase 
 - `.github/workflows/release.yml`: a `v*.*.*` tag stamps the version (`scripts/set-version.sh` into `version.go`, `build/config.yml`, `nfpm.yaml` and `info.json`), creates a draft release, builds the Windows zip and the Linux tar.gz, AppImage, .deb and .rpm (`scripts/collect-linux-packages.sh`), and uploads `SHA256SUMS`. It needs only `contents: write` (to create the release) and the built-in token; actions are pinned to SHAs.
 - `build/linux/nfpm/nfpm.yaml` fixed: package name `kupi`, the Linux binary, the menu entry and icon, LICENSE and NOTICE, Apache-2.0, the repository homepage, and dependencies on `libgtk-4-1` and `libwebkitgtk-6.0-4`. The menu entry is named "Kupi".
 - Verified: the same package steps run locally in Ubuntu 24.04 and produce installable packages.
-- Not verified: the workflow itself; it runs on the first tag. Builds aren't signed (milestone 16 skipped), so Windows SmartScreen warns on first start.
+- Verified on GitHub with the test tag `v0.2.0-rc.1`: all four jobs passed (draft release, Windows package, Linux packages, checksums). The draft release `v0.2.0-rc.1` is left for the maintainer to look at and delete.
+- Builds aren't signed (milestone 16 skipped), so Windows SmartScreen warns on first start.
 
 ## Milestone 12 status
 
@@ -226,7 +227,12 @@ Not verified on Linux yet: the vault (GNOME Keyring, KWallet and the passphrase 
 - Guard: `PrepareHelmInstall` (validated release name, permission check for every kind the chart renders, server-side dry run, warnings for cluster-wide objects and hooks, optional namespace creation) and `PrepareHelmUpgradeChart` (upgrade to another chart or version, same checks as value upgrades). The architecture tests still confine the Helm SDK to `internal/kube` and its writes to the Guard.
 - UI: **Install a chart** on the Helm page (search or repository address, version, values, review) and a **Chart version** tab on each release.
 - Verified: unit tests (digest mismatch, http refused, size caps, OCI references, install and upgrade plans with a fake Helm).
-- Not verified live: Artifact Hub, a real repository and an OCI registry, and an install on k3d from the UI. The testing guide's J9–J13 cover them.
+- Verified live on k3d in a browser (server mode): Artifact Hub search; podinfo 6.7.0 installed from its repository into a new namespace, then moved to 6.17.0 on the Chart version tab with the right diff; versions and chart details from the OCI registry `oci://ghcr.io/stefanprodan/charts`; `http://` refused; the prometheus chart (29.45.0, 23 objects by default) installed with its optional parts switched off, with the cluster-wide warning.
+- Bugs found and fixed while testing:
+  - The review warned that Helm "will also run" a chart's test hooks; those only run with `helm test`. Now only install hooks (or upgrade hooks) are listed.
+  - Cluster-wide objects (ClusterRole and so on) were shown with the release's namespace in the summary and diff. Built-in cluster-wide kinds no longer get one.
+  - The release name kept the first chart's name after picking another chart. It now follows the chart until the user types a name.
+  - The upgrade summary read "from revision 1 from podinfo 6.7.0"; now "(now at revision 1) from podinfo 6.7.0 to …".
 
 ## Milestone 13 status
 
@@ -234,7 +240,15 @@ Not verified on Linux yet: the vault (GNOME Keyring, KWallet and the passphrase 
 - `internal/imagescan`: Trivy (`trivy image --format json --scanners vuln`) and cosign (`cosign verify`, keyless, any identity, with the signer shown) as optional programs run through `procutil`. The UI says where to get them when missing.
 - UI: a **Registry logins** tab on the Images page, and **Scan for vulnerabilities** and **Check signature** in an image's details.
 - Verified: unit tests (Trivy and cosign output parsing with recorded output, login lookup, registry names).
-- Not verified live: Trivy and cosign aren't installed on the development PC; a pull with a real private registry login.
+- Verified live with Trivy 0.76.2 and cosign 3.1.4 (installed with winget): busybox:1.36 has no known vulnerabilities; registry:2 lists 2 critical, 29 high, 50 medium and 4 low findings, worst first, with fixed versions; `cgr.dev/chainguard/static` is signed by Chainguard's release workflow; busybox has no signature. A password-protected registry on 127.0.0.1:5000 refused an anonymous pull and served the image once a login was saved (the registry's log shows the authenticated request).
+- Bugs found and fixed while testing:
+  - winget installs cosign as `cosign-windows-amd64.exe`, so Kupi said it wasn't installed. Kupi now also looks for the name with the platform suffix.
+  - cosign 3 adds a signature entry with no details; it showed as a blank signer. Such entries now count as signed without a name.
+  - "No signature was found for this image.." had two periods.
+  - A failed pull's message stayed after a later successful pull of the same image, and a success showed nothing. Now a new pull replaces old messages for that image, a success says "Pulled …", and messages can be dismissed.
+  - A pull showed nothing until the first progress event, up to 30 seconds for a registry that doesn't answer. It now shows "Pulling …" at once.
+  - With the vault locked, a pull from a registry with a saved login failed with "no basic auth credentials" only. It now says the vault is locked and to unlock it.
+  - Each image row's buttons now name the image for screen readers ("Details of busybox:1.36").
 
 ## Milestone 14 status
 
@@ -242,7 +256,8 @@ Not verified on Linux yet: the vault (GNOME Keyring, KWallet and the passphrase 
 - Bridge: the GitHub token lives in the vault item `github-token` (checked against GitHub when saved); `GitSource`, `ProposeChange` and `OpenPullRequest`. Secrets are refused. Saving and forgetting the token and opening a pull request are audited; the cluster isn't touched, so it's not a Guard action.
 - UI: a **GitHub** box on the GitOps page, and **Propose in Git** in the editor for objects Argo CD or Flux manage.
 - Verified: unit tests against a fake GitHub API (finding the document, replacing it, branch and pull request calls, error cases).
-- Not verified live: a real pull request (testing guide K4).
+- Verified live up to GitHub: editing an object of the sample Argo CD app offers **Propose in Git**, and with the vault locked it stops with "unlock the vault first". Bug fixed: the notice called every app a Flux app ("Managed by Flux Application shop"), because it compared the tool against "argocd" while Go sends "Argo CD".
+- Not verified live: a real pull request. It needs a GitHub token and a test repository from the maintainer (testing guide K4).
 - Not built: Argo CD ApplicationSets; GitLab and other hosts.
 
 ## Milestone 15 status
@@ -254,8 +269,9 @@ Not verified on Linux yet: the vault (GNOME Keyring, KWallet and the passphrase 
 - Verified: unit tests (deny-all, named ports, port ranges, AND and OR peers, IP blocks, egress-only; Prometheus discovery, query building, injection refused, answer parsing), type-check and frontend tests.
 - Verified live on k3d, in a browser through server mode, with `docs/testdata/network-policies.yaml`: ticker → Service hello on port 80 shows Allowed (port 80 followed to pod port 8080, allowed by `hello-from-ticker`), and demo-web → hello shows Blocked by both policies. Real requests from the pods agree: ticker gets the nginx page, demo-web's connection is refused (k3s rejects blocked traffic). Replay listed the recorded changes and highlighted each on the map.
 - Bug found and fixed while testing replay: `kubectl scale` (and autoscalers) write through the scale subresource, whose managedFields entry has no time, so History credited the change to the previous writer ("kubectl apply"). The recorder now credits the scale entry when no timestamped entry moved. kubectl's default manager name (`kubectl`, or `kubectl.exe` on Windows) now reads "kubectl" instead of "kubectl apply --server-side", since many kubectl commands use it.
-- Not verified live: Prometheus in a cluster (testing guide J13).
+- Verified live: with the prometheus chart installed by Kupi, the pod Metrics tab offered 6 hours, 24 hours and 7 days and drew Prometheus' data ("From Prometheus (monitoring/prometheus-server:80)"); the memory value matched a direct query (450560 bytes).
 
+## Environment
 
 - Go 1.27, Wails v3.1.0, client-go v0.37 (supports Kubernetes 1.34 to 1.37), k3d 5.9, Node 22.
 - Developed on Windows; the Linux build is tested in WSL2 Ubuntu.
@@ -270,3 +286,4 @@ Not verified on Linux yet: the vault (GNOME Keyring, KWallet and the passphrase 
 - 2026-11-06: milestone 10 (maintainer feedback, round 1) implemented and verified.
 - 2026-11-06: published to GitHub; CI green on Ubuntu 24.04 and Windows.
 - 2026-11-07: Linux build, packages and terminal verified in Ubuntu 24.04 (WSL2); milestones 11 to 15 implemented with unit tests; milestone 16 skipped.
+- 2026-11-07: milestones 11 to 15 checked live (release workflow on GitHub, Artifact Hub, OCI, Prometheus, Trivy, cosign, a private registry); 12 issues found and fixed. Only the GitHub pull request remains, for the maintainer.

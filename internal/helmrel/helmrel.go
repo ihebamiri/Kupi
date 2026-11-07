@@ -56,8 +56,8 @@ type Resource struct {
 	Name       string `json:"name"`
 }
 
-// Objects splits a rendered manifest into objects. Objects without a
-// namespace get the release's.
+// Objects splits a rendered manifest into objects. Namespaced objects
+// without a namespace get the release's.
 func Objects(manifest, namespace string) ([]*unstructured.Unstructured, error) {
 	dec := utilyaml.NewYAMLOrJSONDecoder(strings.NewReader(manifest), 4096)
 	var out []*unstructured.Unstructured
@@ -73,12 +73,27 @@ func Objects(manifest, namespace string) ([]*unstructured.Unstructured, error) {
 			continue
 		}
 		obj := &unstructured.Unstructured{Object: doc}
-		if obj.GetNamespace() == "" && namespace != "" {
+		if obj.GetNamespace() == "" && namespace != "" && !clusterScoped[obj.GetKind()] {
 			obj.SetNamespace(namespace)
 		}
 		out = append(out, obj)
 	}
 	return out, nil
+}
+
+// clusterScoped lists the built-in kinds that live outside namespaces (and
+// Gateway API's GatewayClass), so the release's namespace isn't put on them.
+// Custom kinds can't be told apart without asking the cluster; they keep
+// the release's namespace when the chart gives none.
+var clusterScoped = map[string]bool{
+	"APIService": true, "CertificateSigningRequest": true, "ClusterRole": true, "ClusterRoleBinding": true,
+	"ClusterTrustBundle": true, "CSIDriver": true, "CSINode": true, "CustomResourceDefinition": true,
+	"DeviceClass": true, "FlowSchema": true, "GatewayClass": true, "IngressClass": true, "IPAddress": true,
+	"MutatingAdmissionPolicy": true, "MutatingAdmissionPolicyBinding": true, "MutatingWebhookConfiguration": true,
+	"Namespace": true, "Node": true, "PersistentVolume": true, "PriorityClass": true, "PriorityLevelConfiguration": true,
+	"ResourceSlice": true, "RuntimeClass": true, "ServiceCIDR": true, "StorageClass": true,
+	"StorageVersionMigration": true, "ValidatingAdmissionPolicy": true, "ValidatingAdmissionPolicyBinding": true,
+	"ValidatingWebhookConfiguration": true, "VolumeAttachment": true, "VolumeAttributesClass": true,
 }
 
 func objKey(o *unstructured.Unstructured) string {

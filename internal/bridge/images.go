@@ -354,8 +354,11 @@ func (s *ImageService) Pull(ctx context.Context, ref string) (string, error) {
 		return "", err
 	}
 	// A saved login for the image's registry is used when the vault is unlocked.
-	auth := s.loginFor(ref)
+	auth, locked := s.loginFor(ref)
 	id := randomID()
+	// Shown at once: a registry that doesn't answer sends no progress for
+	// up to half a minute.
+	s.d.Emit.Emit(EventPull, PullEvent{ID: id, Ref: ref, Status: "Starting"})
 	go func() {
 		pctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
 		defer cancel()
@@ -365,6 +368,9 @@ func (s *ImageService) Pull(ctx context.Context, ref string) (string, error) {
 		ev := PullEvent{ID: id, Ref: ref, Percent: 100, Done: true, Status: "Pulled"}
 		if err != nil {
 			ev.Percent, ev.Status, ev.Error = 0, "Failed", err.Error()
+			if locked && authFailure(err) {
+				ev.Error += ". The vault is locked, so no saved registry login was used: unlock it on the Vault page and pull again."
+			}
 		}
 		s.d.Emit.Emit(EventPull, ev)
 	}()

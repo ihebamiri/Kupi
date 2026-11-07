@@ -1,6 +1,9 @@
 package bridge
 
-import "testing"
+import (
+	"errors"
+	"testing"
+)
 
 func TestRegistryOf(t *testing.T) {
 	for ref, want := range map[string]string{
@@ -29,5 +32,15 @@ func TestRegistryOf(t *testing.T) {
 		if registryHostRe.MatchString(normalizeHost(bad)) {
 			t.Errorf("%q accepted", bad)
 		}
+	}
+}
+
+func TestAuthFailure(t *testing.T) {
+	// Seen from Docker 29 pulling from a registry that wants a login.
+	if !authFailure(errors.New(`failed to resolve reference "localhost:5000/kupi/busybox:1.36": pull access denied, repository does not exist or may require authorization: authorization failed: no basic auth credentials`)) {
+		t.Error("a missing login wasn't recognised")
+	}
+	if authFailure(errors.New("dial tcp 127.0.0.1:5000: connection refused")) {
+		t.Error("a network error was taken for a missing login")
 	}
 }

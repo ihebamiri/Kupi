@@ -84,17 +84,33 @@ func (s *ImageService) DeleteRegistryLogin(host string) error {
 
 // loginFor returns the saved login for an image's registry, if the vault is
 // unlocked and holds one. Anything else means an anonymous pull.
-func (s *ImageService) loginFor(ref string) *engine.RegistryAuth {
+// It also says whether the vault was locked, since a saved login can't be
+// used then.
+func (s *ImageService) loginFor(ref string) (auth *engine.RegistryAuth, locked bool) {
 	host := registryOf(ref)
 	vals, err := s.d.Vault.Values(registryItem(host))
+	if errors.Is(err, vault.ErrLocked) {
+		return nil, true
+	}
 	if err != nil || vals["username"] == "" || vals["password"] == "" {
-		return nil
+		return nil, false
 	}
 	server := host
 	if host == "docker.io" {
 		server = "https://index.docker.io/v1/"
 	}
-	return &engine.RegistryAuth{Username: vals["username"], Password: vals["password"], ServerAddress: server}
+	return &engine.RegistryAuth{Username: vals["username"], Password: vals["password"], ServerAddress: server}, false
+}
+
+// authFailure tells whether a pull failed for want of credentials.
+func authFailure(err error) bool {
+	msg := strings.ToLower(err.Error())
+	for _, s := range []string{"unauthorized", "authorization", "authentication required", "access denied", "no basic auth"} {
+		if strings.Contains(msg, s) {
+			return true
+		}
+	}
+	return false
 }
 
 // registryOf returns the registry host of an image reference, the way

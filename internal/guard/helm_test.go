@@ -94,7 +94,10 @@ func (h *fakeHelm) HelmInstall(_ context.Context, req kube.HelmInstall, dryRun b
 		Name: req.Name, Namespace: req.Namespace, Version: 1, Chart: req.Chart,
 		Manifest: manifest("2") + "---\napiVersion: rbac.authorization.k8s.io/v1\nkind: ClusterRole\nmetadata:\n  name: shop-reader\n",
 		Info:     &rspb.Info{Status: common.StatusDeployed},
-		Hooks:    []*rspb.Hook{{Name: "shop-migrate", Kind: "Job", Events: []rspb.HookEvent{rspb.HookPreInstall}}},
+		Hooks: []*rspb.Hook{
+			{Name: "shop-migrate", Kind: "Job", Events: []rspb.HookEvent{rspb.HookPreInstall}},
+			{Name: "shop-test", Kind: "Pod", Events: []rspb.HookEvent{rspb.HookTest}},
+		},
 	}
 	if !dryRun {
 		h.installed = append(h.installed, req)
@@ -244,7 +247,7 @@ func TestHelmInstallReview(t *testing.T) {
 		t.Errorf("diff must show the objects without Secret values:\n%s", plan.Diff)
 	}
 	warn := strings.Join(plan.Warnings, "\n")
-	if !strings.Contains(warn, "ClusterRole shop-reader") || !strings.Contains(warn, "Job shop-migrate (pre-install)") {
+	if !strings.Contains(warn, "ClusterRole shop-reader") || !strings.Contains(warn, "Job shop-migrate (pre-install)") || strings.Contains(warn, "shop-test") {
 		t.Errorf("warnings = %v", plan.Warnings)
 	}
 	if len(f.helm().installed) != 0 {

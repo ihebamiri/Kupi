@@ -20,9 +20,11 @@ Time needed: about 30 minutes for setup, 1 to 2 hours for the tests.
 | k3d | yes, for these tests | Creates the local Kubernetes cluster inside Docker | 5.9.0 (Kubernetes v1.35.5, k3s) |
 | kubectl | yes, for these tests | Loads the test data from the command line (Kupi itself doesn't need it) | 1.36.1 |
 | Helm | yes, for these tests | Installs the demo Helm release (Kupi has Helm built in and doesn't need it) | any 3.x or 4.x |
-| Trivy | optional | Image vulnerability scans (L6), from [trivy.dev](https://trivy.dev) | any recent |
-| cosign | optional | Image signature checks (L7), from [sigstore.dev](https://docs.sigstore.dev/cosign/system_config/installation/) | 2.x or newer |
+| Trivy | optional | Image vulnerability scans (L6), from [trivy.dev](https://trivy.dev) | 0.76.2 |
+| cosign | optional | Image signature checks (L7), from [sigstore.dev](https://docs.sigstore.dev/cosign/system_config/installation/) | 3.1.4 |
 | A GitHub account | optional | Pull requests for GitOps-managed objects (K4) | |
+
+Trivy and cosign install with winget (`winget install --id AquaSecurity.Trivy -e` and `winget install --id Sigstore.Cosign -e`). winget names cosign `cosign-windows-amd64`; Kupi finds it under that name too. Open a new PowerShell window afterwards, so Kupi sees the updated PATH.
 
 Kupi supports Kubernetes 1.34 to 1.37. A computer with 16 GB of memory is comfortable; 8 GB works if few other programs run.
 
@@ -344,7 +346,7 @@ Each step says what to do (**Do**) and what you should see (**Expect**).
 - [ ] **L2.** Do: search Docker Hub for `busybox`, press **Versions** to see its tags, then pull `busybox:1.36` (type it in the image box and press **Pull**). Expect: progress, then the image in the local list.
 - [ ] **L3.** Do: on `busybox:1.36` → **Load into cluster** → `k3d-kupi-test`. Expect: a success message once it's on the node.
 - [ ] **L4.** Do: **Details** on an image. Expect: layers, ports, user and environment variable names only.
-- [ ] **L5.** (Optional, needs an account on a registry with a private image, for example Docker Hub or ghcr.io.) Do: unlock the vault, **Registry logins** tab → registry (`docker.io` or `ghcr.io`), user name, an access token → **Save login**. Then pull your private image. Expect: the pull works; without the login it fails with "unauthorized" or "not found". The password is never shown again; **Delete** removes the login.
+- [ ] **L5.** (Optional, needs an account on a registry with a private image, for example Docker Hub or ghcr.io.) Do: unlock the vault, **Registry logins** tab → registry (`docker.io` or `ghcr.io`), user name, an access token → **Save login**. Then pull your private image. Expect: "Pulled …"; without the login it fails with "unauthorized" or "no basic auth credentials". The password is never shown again; the bin icon removes the login. With the vault locked (**Lock now** on the Vault page), the failed pull adds that the vault is locked and no saved login was used.
 - [ ] **L6.** (Needs Trivy.) Do: **Details** on `busybox:1.36` → **Scan for vulnerabilities**. Expect: after a while (the first scan downloads Trivy's database), "No known vulnerabilities" or a table sorted worst first, with package, installed and fixed versions. Without Trivy, the button is disabled and a note says where to get it.
 - [ ] **L7.** (Needs cosign.) Do: pull `cgr.dev/chainguard/static:latest`, open its **Details** → **Check signature**. Expect: **Signed**, with the signer (a `github.com/chainguard-images/…` workflow) and the issuer `https://token.actions.githubusercontent.com`. Then **Check signature** on `busybox:1.36`. Expect: "No signature was found for this image."
 

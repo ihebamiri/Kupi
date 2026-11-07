@@ -149,6 +149,8 @@ const NO_CHART: ChartChoice = { repo: "", chart: "", version: "", info: null };
 function InstallPanel({ contextName, defaultNamespace, onCancel, onInstalled }: { contextName: string; defaultNamespace: string; onCancel: () => void; onInstalled: (namespace: string, name: string) => void }) {
   const [choice, setChoice] = useState<ChartChoice>(NO_CHART);
   const [name, setName] = useState("");
+  // The release name follows the chosen chart until the user types one.
+  const [nameEdited, setNameEdited] = useState(false);
   const [ns, setNs] = useState(defaultNamespace);
   const [createNs, setCreateNs] = useState(false);
   const [values, setValues] = useState("");
@@ -163,8 +165,8 @@ function InstallPanel({ contextName, defaultNamespace, onCancel, onInstalled }: 
     if (!choice.info || valuesFor === key) return;
     setValues(choice.info.values);
     setValuesFor(key);
-    setName((n) => n || choice.chart);
-  }, [choice.info, choice.chart, key, valuesFor]);
+    if (!nameEdited) setName(choice.chart);
+  }, [choice.info, choice.chart, key, valuesFor, nameEdited]);
 
   const preview = async () => {
     if (!choice.info) return;
@@ -206,7 +208,16 @@ function InstallPanel({ contextName, defaultNamespace, onCancel, onInstalled }: 
         <>
           <div className="grid grid-cols-2 gap-3">
             <Field label="Release name" hint="Lowercase letters, digits and dashes.">
-              <input className={`${inputClass} font-mono`} value={name} maxLength={53} onChange={(e) => setName(e.target.value.toLowerCase())} spellCheck={false} />
+              <input
+                className={`${inputClass} font-mono`}
+                value={name}
+                maxLength={53}
+                onChange={(e) => {
+                  setName(e.target.value.toLowerCase());
+                  setNameEdited(true);
+                }}
+                spellCheck={false}
+              />
             </Field>
             <div className="flex flex-col gap-1">
               <span className="text-[12px] font-medium text-muted">Namespace</span>

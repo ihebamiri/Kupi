@@ -48,4 +48,18 @@ func TestParseCosign(t *testing.T) {
 	if !r.Signed || len(r.Signatures) != 1 || !strings.Contains(r.Signatures[0].Identity, "release.yml") {
 		t.Errorf("report = %+v", r)
 	}
+
+	// cosign 3 adds new-format bundles with "optional": null (seen on
+	// cgr.dev/chainguard/static); they count as signed but name nobody.
+	r, err = parseCosign("cgr.dev/chainguard/static:latest", []byte(`[
+	  {"critical":{"identity":{"docker-reference":"cgr.dev/chainguard/static"}},"optional":null},
+	  {"optional":{"Issuer":"https://token.actions.githubusercontent.com","Subject":"https://github.com/chainguard-images/images/.github/workflows/release.yaml@refs/heads/main"}}
+	]`))
+	if err != nil || !r.Signed || len(r.Signatures) != 1 || r.Signatures[0].Issuer != "https://token.actions.githubusercontent.com" {
+		t.Errorf("cosign 3 report = %+v, %v", r, err)
+	}
+	r, _ = parseCosign("x", []byte(`[{"optional":null}]`))
+	if !r.Signed || len(r.Signatures) != 0 {
+		t.Errorf("unnamed signature = %+v", r)
+	}
 }
