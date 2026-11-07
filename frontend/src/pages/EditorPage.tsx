@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Eye, FileText, FolderOpen, Layers, ShieldCheck } from "lucide-react";
+import { GitOpsEditNotice } from "../components/GitProposal";
 import { ReviewDialog } from "../components/ReviewDialog";
 import { SchemaForm } from "../components/SchemaForm";
 import { YamlEditor } from "../components/YamlEditor";
@@ -319,6 +320,13 @@ export function EditorPage({ onConnect, initialManifest, edit, fromImage }: Edit
 
       <div className="mb-3 flex flex-col gap-2">
         {done && <Notice tone="good">{done}</Notice>}
+        {edit && (
+          <GitOpsEditNotice
+            contextName={active.name}
+            target={edit}
+            manifest={async () => (source.current === "form" && obj ? FormService.ToYAML(JSON.stringify(obj)) : yamlText)}
+          />
+        )}
         {error && <Notice tone="bad">{error}</Notice>}
         {parseError && <Notice tone="bad">YAML problem: {parseError}</Notice>}
         {multi && (

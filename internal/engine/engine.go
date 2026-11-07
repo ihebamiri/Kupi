@@ -7,6 +7,7 @@ package engine
 import (
 	"bufio"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -263,14 +264,30 @@ type pullMessage struct {
 	} `json:"progressDetail"`
 }
 
-// Pull downloads an image, calling onProgress as layers arrive.
-func (c *Client) Pull(ctx context.Context, ref string, onProgress func(PullProgress)) error {
+// RegistryAuth is a registry login for one pull.
+type RegistryAuth struct {
+	Username      string `json:"username"`
+	Password      string `json:"password"`
+	ServerAddress string `json:"serveraddress"`
+}
+
+// Pull downloads an image, calling onProgress as layers arrive. auth, when
+// set, logs in to the image's registry for this pull only.
+func (c *Client) Pull(ctx context.Context, ref string, auth *RegistryAuth, onProgress func(PullProgress)) error {
 	image, tag := splitTag(ref)
 	q := url.Values{"fromImage": {image}}
 	if tag != "" {
 		q.Set("tag", tag)
 	}
-	resp, err := c.do(ctx, http.MethodPost, "/images/create", q, nil, nil)
+	var headers map[string]string
+	if auth != nil {
+		data, err := json.Marshal(auth)
+		if err != nil {
+			return err
+		}
+		headers = map[string]string{"X-Registry-Auth": base64.URLEncoding.EncodeToString(data)}
+	}
+	resp, err := c.do(ctx, http.MethodPost, "/images/create", q, nil, headers)
 	if err != nil {
 		return err
 	}

@@ -13,11 +13,36 @@ import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wails
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
+import * as charts$0 from "../charts/models.js";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
 import * as helmrel$0 from "../helmrel/models.js";
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
 import * as $models from "./models.js";
+
+/**
+ * ChartInfo downloads one version of a chart and describes it, with its
+ * default values for the values editor.
+ */
+export function ChartInfo(repo: string, chart: string, version: string): $CancellablePromise<charts$0.Info> {
+    return $Call.ByID(2815121041, repo, chart, version);
+}
+
+/**
+ * ChartVersions lists a chart's published versions, newest first.
+ */
+export function ChartVersions(repo: string, chart: string): $CancellablePromise<charts$0.Version[] | null> {
+    return $Call.ByID(2969207360, repo, chart);
+}
+
+/**
+ * PrepareInstall downloads the chart and previews installing it.
+ */
+export function PrepareInstall(req: $models.InstallRequest): $CancellablePromise<$models.PlanView> {
+    return $Call.ByID(2986326009, req);
+}
 
 /**
  * PrepareRollback previews rolling a release back to an earlier revision.
@@ -42,6 +67,14 @@ export function PrepareUpgrade(contextName: string, $namespace: string, name: st
 }
 
 /**
+ * PrepareUpgradeChart previews upgrading a release to another chart version
+ * (or another chart) from a repository, with the given values.
+ */
+export function PrepareUpgradeChart(contextName: string, $namespace: string, name: string, repo: string, chart: string, version: string, valuesYAML: string): $CancellablePromise<$models.PlanView> {
+    return $Call.ByID(546216166, contextName, $namespace, name, repo, chart, version, valuesYAML);
+}
+
+/**
  * Release returns a release's details and history.
  */
 export function Release(contextName: string, $namespace: string, name: string): $CancellablePromise<$models.ReleaseDetail> {
@@ -53,6 +86,13 @@ export function Release(contextName: string, $namespace: string, name: string): 
  */
 export function Releases(contextName: string, $namespace: string): $CancellablePromise<helmrel$0.Release[] | null> {
     return $Call.ByID(1674031653, contextName, $namespace);
+}
+
+/**
+ * SearchCharts asks Artifact Hub for Helm charts.
+ */
+export function SearchCharts(query: string): $CancellablePromise<charts$0.Package[] | null> {
+    return $Call.ByID(730658526, query);
 }
 
 /**

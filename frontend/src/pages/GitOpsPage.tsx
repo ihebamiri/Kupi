@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Browser } from "@wailsio/runtime";
 import { ExternalLink, GitBranch, Pause, Play, RefreshCw, RotateCw } from "lucide-react";
 import { ReviewDialog } from "../components/ReviewDialog";
+import { GitHubConnection } from "../components/GitProposal";
 import { Badge, Button, Notice, PageHeader } from "../components/ui";
 import { GitOpsService, errorMessage, type GitOpsApp, type GitOpsOverview, type PlanView } from "../lib/api";
 import { age } from "../lib/format";
@@ -69,6 +70,9 @@ export function GitOpsPage() {
           </Button>
         }
       />
+      <div className="mb-4">
+        <GitHubConnection />
+      </div>
       {error && <Notice tone="bad">{error}</Notice>}
       {message && <Notice tone="good">{message}</Notice>}
       {ov && (ov.installed ?? []).length === 0 && <p className="text-[13px] text-muted">Neither Argo CD nor Flux is installed on this cluster.</p>}

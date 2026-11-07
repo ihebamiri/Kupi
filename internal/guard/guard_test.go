@@ -93,6 +93,8 @@ func (f *fakeCluster) Resolve(gvk schema.GroupVersionKind) (schema.GroupVersionR
 		return namespacesGVR, false, nil
 	case "CustomResourceDefinition":
 		return crdGVR, false, nil
+	case "ClusterRole":
+		return schema.GroupVersionResource{Group: "rbac.authorization.k8s.io", Version: "v1", Resource: "clusterroles"}, false, nil
 	case "Widget":
 		// Served only once its CRD exists.
 		if _, ok := f.objects[key(crdGVR, "", "widgets.example.com")]; ok {

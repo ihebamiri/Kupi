@@ -19,6 +19,35 @@ import * as gitops$0 from "../gitops/models.js";
 import * as $models from "./models.js";
 
 /**
+ * ForgetGitHubToken removes the saved token.
+ */
+export function ForgetGitHubToken(): $CancellablePromise<void> {
+    return $Call.ByID(2896621754);
+}
+
+/**
+ * GitHubStatus reports the saved token's account. The vault must be unlocked.
+ */
+export function GitHubStatus(): $CancellablePromise<$models.GitHubStatus> {
+    return $Call.ByID(2130877550);
+}
+
+/**
+ * GitSource returns the Argo CD or Flux app managing an object and where it
+ * deploys from, or nil when no app manages it.
+ */
+export function GitSource(contextName: string, ref: $models.ResourceRef): $CancellablePromise<$models.GitOpsOwner | null> {
+    return $Call.ByID(541166496, contextName, ref);
+}
+
+/**
+ * OpenPullRequest opens a prepared proposal on GitHub and returns its address.
+ */
+export function OpenPullRequest(id: string, title: string, body: string): $CancellablePromise<string> {
+    return $Call.ByID(2196674141, id, title, body);
+}
+
+/**
  * Overview lists every Argo CD Application and Flux Kustomization and
  * HelmRelease the user can see.
  */
@@ -39,4 +68,20 @@ export function OwnerOf(contextName: string, ref: $models.ResourceRef): $Cancell
  */
 export function PrepareAction(contextName: string, kind: string, $namespace: string, name: string, action: string): $CancellablePromise<$models.PlanView> {
     return $Call.ByID(2512558992, contextName, kind, $namespace, name, action);
+}
+
+/**
+ * ProposeChange finds the object's file in its app's Git repository and
+ * prepares a pull request that puts the edited manifest there. Nothing is
+ * sent to GitHub but reads until OpenPullRequest.
+ */
+export function ProposeChange(contextName: string, ref: $models.ResourceRef, manifest: string): $CancellablePromise<$models.ProposalView> {
+    return $Call.ByID(678983495, contextName, ref, manifest);
+}
+
+/**
+ * SaveGitHubToken checks a token with GitHub and keeps it in the vault.
+ */
+export function SaveGitHubToken(token: string): $CancellablePromise<$models.GitHubStatus> {
+    return $Call.ByID(3992735646, token);
 }

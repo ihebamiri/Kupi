@@ -13,10 +13,20 @@ import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wails
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
 import * as engine$0 from "../engine/models.js";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
+import * as imagescan$0 from "../imagescan/models.js";
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
 import * as $models from "./models.js";
+
+/**
+ * DeleteRegistryLogin removes a saved login.
+ */
+export function DeleteRegistryLogin(host: string): $CancellablePromise<void> {
+    return $Call.ByID(4204606147, host);
+}
 
 /**
  * DiskUsage reports the engine's disk use.
@@ -76,10 +86,38 @@ export function Pull(ref: string): $CancellablePromise<string> {
 }
 
 /**
+ * RegistryLogins lists saved logins. The vault must be unlocked.
+ */
+export function RegistryLogins(): $CancellablePromise<$models.RegistryLogin[] | null> {
+    return $Call.ByID(3394563287);
+}
+
+/**
  * Remove deletes a local image.
  */
 export function Remove(ref: string, force: boolean): $CancellablePromise<void> {
     return $Call.ByID(3769702118, ref, force);
+}
+
+/**
+ * SaveRegistryLogin stores (or replaces) a login in the vault.
+ */
+export function SaveRegistryLogin(host: string, username: string, password: string): $CancellablePromise<void> {
+    return $Call.ByID(2267586853, host, username, password);
+}
+
+/**
+ * Scan checks an image for known vulnerabilities with Trivy.
+ */
+export function Scan(ref: string): $CancellablePromise<imagescan$0.Report | null> {
+    return $Call.ByID(1821780071, ref);
+}
+
+/**
+ * ScanTools reports whether Trivy and cosign are installed.
+ */
+export function ScanTools(): $CancellablePromise<{ [_ in string]?: boolean } | null> {
+    return $Call.ByID(3519648166);
 }
 
 /**
@@ -94,4 +132,11 @@ export function Search(term: string): $CancellablePromise<$models.SearchView[] |
  */
 export function Tags(repo: string): $CancellablePromise<$models.TagView[] | null> {
     return $Call.ByID(4022623755, repo);
+}
+
+/**
+ * VerifySignature checks an image's Sigstore signatures with cosign.
+ */
+export function VerifySignature(ref: string): $CancellablePromise<imagescan$0.SignatureReport | null> {
+    return $Call.ByID(145787791, ref);
 }

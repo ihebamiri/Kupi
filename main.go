@@ -15,8 +15,10 @@ import (
 	"github.com/ihebamiri/kupi/internal/audit"
 	"github.com/ihebamiri/kupi/internal/bridge"
 	"github.com/ihebamiri/kupi/internal/buildmode"
+	"github.com/ihebamiri/kupi/internal/charts"
 	"github.com/ihebamiri/kupi/internal/clipboard"
 	"github.com/ihebamiri/kupi/internal/forward"
+	"github.com/ihebamiri/kupi/internal/gitpr"
 	"github.com/ihebamiri/kupi/internal/guard"
 	"github.com/ihebamiri/kupi/internal/history"
 	"github.com/ihebamiri/kupi/internal/kube"
@@ -178,6 +180,8 @@ func buildDeps(emitter live.Emitter) (bridge.Deps, error) {
 		Settings:     settingsStore,
 		Terminals:    terminal.NewManager(func(c terminal.Chunk) { emitter.Emit(terminal.EventName, c) }),
 		Native:       &bridge.Native{},
+		Charts:       charts.New(),
+		Git:          gitpr.New(),
 	}
 	deps.ApplySettings(settingsStore.Get())
 	if deps.Laptop, err = bridge.NewLaptop(filepath.Join(dir, "laptop.json"), deps); err != nil {

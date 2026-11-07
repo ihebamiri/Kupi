@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Events } from "@wailsio/runtime";
 import { Download, PackagePlus, Rocket, Search, ShieldAlert, Star, Trash2, Upload } from "lucide-react";
 import { Dialog } from "../components/Dialog";
+import { ImageSecurity, RegistryLogins } from "../components/ImageSecurity";
 import { Badge, Button, Field, Notice, PageHeader, inputClass } from "../components/ui";
 import {
   ImageService,
@@ -21,7 +22,7 @@ import { formatBytes } from "../lib/units";
 import { useClusters } from "../state/clusters";
 import { useNav } from "../state/nav";
 
-type Tab = "local" | "find" | "disk";
+type Tab = "local" | "find" | "disk" | "logins";
 /** A local image with its tag list normalised to an array. */
 type Img = ImageView & { tags: string[] };
 
@@ -64,6 +65,7 @@ export function ImagesPage() {
             ["local", "On this computer"],
             ["find", "Find images"],
             ["disk", "Disk space"],
+            ["logins", "Registry logins"],
           ] as [Tab, string][]
         ).map(([t, label]) => (
           <button
@@ -81,6 +83,7 @@ export function ImagesPage() {
       {engine?.available && tab === "local" && <LocalImages reload={reload} />}
       {engine?.available && tab === "find" && <FindImages />}
       {engine?.available && tab === "disk" && <DiskSpace />}
+      {tab === "logins" && <RegistryLogins />}
     </div>
   );
 }
@@ -266,6 +269,7 @@ function ImageDetails({ refName, onClose }: { refName: string; onClose: () => vo
               ))}
             </ul>
           </section>
+          <ImageSecurity refName={refName} />
         </div>
       )}
     </Dialog>

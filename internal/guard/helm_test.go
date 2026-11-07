@@ -19,10 +19,11 @@ import (
 // fakeHelm keeps release revisions in memory. Upgrades render a manifest
 // whose replica count is the "replicas" value.
 type fakeHelm struct {
-	revs     []*rspb.Release // oldest first
-	upgrades []map[string]any
-	rolled   []int
-	removed  bool
+	revs      []*rspb.Release // oldest first
+	upgrades  []map[string]any
+	rolled    []int
+	removed   bool
+	installed []kube.HelmInstall
 }
 
 func (f *fakeCluster) Helm() kube.HelmReader         { return f.helm() }
@@ -79,6 +80,24 @@ func (h *fakeHelm) HelmUpgrade(_ context.Context, req kube.HelmUpgrade, dryRun b
 	out := &rspb.Release{Name: "shop", Namespace: "shop", Version: len(h.revs) + 1, Manifest: manifest(replicas), Info: &rspb.Info{Status: common.StatusDeployed}}
 	if !dryRun {
 		h.upgrades = append(h.upgrades, req.Values)
+		h.revs = append(h.revs, out)
+	}
+	return out, nil
+}
+
+// HelmInstall renders a Deployment, a Secret and a ClusterRole, plus a hook.
+func (h *fakeHelm) HelmInstall(_ context.Context, req kube.HelmInstall, dryRun bool) (*rspb.Release, error) {
+	if _, bad := req.Values["broken"]; bad {
+		return nil, errors.New("template: shop/templates/deploy.yaml:3: nil pointer")
+	}
+	out := &rspb.Release{
+		Name: req.Name, Namespace: req.Namespace, Version: 1, Chart: req.Chart,
+		Manifest: manifest("2") + "---\napiVersion: rbac.authorization.k8s.io/v1\nkind: ClusterRole\nmetadata:\n  name: shop-reader\n",
+		Info:     &rspb.Info{Status: common.StatusDeployed},
+		Hooks:    []*rspb.Hook{{Name: "shop-migrate", Kind: "Job", Events: []rspb.HookEvent{rspb.HookPreInstall}}},
+	}
+	if !dryRun {
+		h.installed = append(h.installed, req)
 		h.revs = append(h.revs, out)
 	}
 	return out, nil
@@ -197,5 +216,106 @@ func TestHelmPendingReleaseIsDenied(t *testing.T) {
 	p, _ = g.PrepareHelmUninstall(context.Background(), HelmTarget{Context: "test", Namespace: "shop", Name: "shop"})
 	if p.Allowed {
 		t.Error("uninstall allowed during a pending upgrade")
+	}
+}
+
+func shopChart(version string, deprecated bool) *chartv2.Chart {
+	return &chartv2.Chart{Metadata: &chartv2.Metadata{APIVersion: "v2", Name: "shop", Version: version, Deprecated: deprecated}}
+}
+
+func TestHelmInstallReview(t *testing.T) {
+	f := newFake(profile.Local)
+	f.put(namespacesGVR, obj("v1", "Namespace", "", "shop"))
+	g, log := newGuard(t, f)
+	ctx := context.Background()
+	req := HelmInstallRequest{Context: "test", Namespace: "shop", Name: "shop", Chart: shopChart("2.0.0", false), Source: "https://charts.example.com", Values: map[string]any{"replicas": "2"}}
+
+	plan, err := g.PrepareHelmInstall(ctx, req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !plan.Allowed {
+		t.Fatalf("denied: %s", plan.DeniedReason)
+	}
+	if !strings.Contains(plan.Summary[0], "shop 2.0.0 from https://charts.example.com") || !strings.Contains(plan.Summary[0], "3 objects") {
+		t.Errorf("summary = %v", plan.Summary)
+	}
+	if strings.Contains(plan.Diff, "hunter2") || !strings.Contains(plan.Diff, "kind: Deployment") {
+		t.Errorf("diff must show the objects without Secret values:\n%s", plan.Diff)
+	}
+	warn := strings.Join(plan.Warnings, "\n")
+	if !strings.Contains(warn, "ClusterRole shop-reader") || !strings.Contains(warn, "Job shop-migrate (pre-install)") {
+		t.Errorf("warnings = %v", plan.Warnings)
+	}
+	if len(f.helm().installed) != 0 {
+		t.Fatal("prepare must not install")
+	}
+	if _, err := g.Commit(ctx, plan.ID, Confirmation{}); err != nil {
+		t.Fatal(err)
+	}
+	if len(f.helm().installed) != 1 {
+		t.Fatalf("installed %d times", len(f.helm().installed))
+	}
+	if entries, _ := log.Recent(1); entries[0].Action != "helm-install" || entries[0].Resource != "Helm release shop/shop" {
+		t.Errorf("audit = %+v", entries[0])
+	}
+
+	// The name is now taken.
+	again, _ := g.PrepareHelmInstall(ctx, req)
+	if again.Allowed || !strings.Contains(again.DeniedReason, "already exists") {
+		t.Errorf("duplicate install: %v %q", again.Allowed, again.DeniedReason)
+	}
+}
+
+func TestHelmInstallRefusals(t *testing.T) {
+	f := newFake(profile.Local)
+	g, _ := newGuard(t, f)
+	ctx := context.Background()
+	base := HelmInstallRequest{Context: "test", Namespace: "fresh", Name: "web", Chart: shopChart("1.0.0", true)}
+
+	if _, err := g.PrepareHelmInstall(ctx, HelmInstallRequest{Context: "test", Namespace: "fresh", Name: "Web_App", Chart: shopChart("1.0.0", false)}); err == nil {
+		t.Error("an invalid release name was accepted")
+	}
+	plan, _ := g.PrepareHelmInstall(ctx, base)
+	if plan.Allowed || !strings.Contains(plan.DeniedReason, "doesn't exist") {
+		t.Errorf("missing namespace: %v %q", plan.Allowed, plan.DeniedReason)
+	}
+	base.CreateNamespace = true
+	plan, _ = g.PrepareHelmInstall(ctx, base)
+	if !plan.Allowed {
+		t.Errorf("create namespace: %q", plan.DeniedReason)
+	}
+	if !strings.Contains(strings.Join(plan.Warnings, "\n"), "deprecated") {
+		t.Errorf("deprecated chart not flagged: %v", plan.Warnings)
+	}
+	base.Values = map[string]any{"broken": true}
+	plan, _ = g.PrepareHelmInstall(ctx, base)
+	if plan.Allowed || !strings.Contains(plan.DeniedReason, "couldn't render") {
+		t.Errorf("broken chart: %v %q", plan.Allowed, plan.DeniedReason)
+	}
+	f.denyVerbs["create"] = true
+	base.Values = nil
+	plan, _ = g.PrepareHelmInstall(ctx, base)
+	if plan.Allowed || !strings.Contains(plan.DeniedReason, "can't create") {
+		t.Errorf("no permission: %v %q", plan.Allowed, plan.DeniedReason)
+	}
+}
+
+func TestHelmUpgradeToAnotherChartVersion(t *testing.T) {
+	f := newFake(profile.Local)
+	h := f.helm()
+	h.add("1", "1.0.0", common.StatusDeployed)
+	g, _ := newGuard(t, f)
+	target := HelmTarget{Context: "test", Namespace: "shop", Name: "shop"}
+	plan, err := g.PrepareHelmUpgradeChart(context.Background(), target, map[string]any{"replicas": "1"}, shopChart("1.4.0", false), "oci://ghcr.io/example/charts")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(plan.Summary[0], "from shop 1.0.0 to shop 1.4.0 (oci://ghcr.io/example/charts)") {
+		t.Errorf("summary = %v", plan.Summary)
+	}
+	other, _ := g.PrepareHelmUpgradeChart(context.Background(), target, map[string]any{"replicas": "1"}, &chartv2.Chart{Metadata: &chartv2.Metadata{Name: "store", Version: "1.0.0"}}, "")
+	if !strings.Contains(strings.Join(other.Warnings, "\n"), "different chart") {
+		t.Errorf("chart swap not flagged: %v", other.Warnings)
 	}
 }

@@ -27,7 +27,7 @@ func TestLocalEngine(t *testing.T) {
 		t.Fatal(err)
 	}
 	var last PullProgress
-	if err := c.Pull(ctx, "busybox:1.36", func(p PullProgress) { last = p }); err != nil {
+	if err := c.Pull(ctx, "busybox:1.36", nil, func(p PullProgress) { last = p }); err != nil {
 		t.Fatalf("pull: %v (last %+v)", err, last)
 	}
 	d, err := c.Inspect(ctx, "busybox:1.36")

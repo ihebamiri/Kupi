@@ -23,8 +23,10 @@ import (
 
 	"github.com/ihebamiri/kupi/internal/audit"
 	"github.com/ihebamiri/kupi/internal/buildmode"
+	"github.com/ihebamiri/kupi/internal/charts"
 	"github.com/ihebamiri/kupi/internal/clipboard"
 	"github.com/ihebamiri/kupi/internal/forward"
+	"github.com/ihebamiri/kupi/internal/gitpr"
 	"github.com/ihebamiri/kupi/internal/guard"
 	"github.com/ihebamiri/kupi/internal/history"
 	"github.com/ihebamiri/kupi/internal/kube"
@@ -69,6 +71,10 @@ type Deps struct {
 	Settings *settings.Store
 	// Terminals runs the integrated terminal's shells.
 	Terminals *terminal.Manager
+	// Charts finds and downloads Helm charts.
+	Charts *charts.Client
+	// Git opens pull requests for GitOps-managed objects.
+	Git *gitpr.Client
 	// Native asks the user in a native OS dialog, which page scripts can't
 	// answer. It reports false when no dialog could be shown.
 	Native *Native

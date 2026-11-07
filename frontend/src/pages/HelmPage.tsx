@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Eye, Package, RefreshCw, RotateCcw, Trash2, Upload } from "lucide-react";
+import { Eye, Package, Plus, RefreshCw, RotateCcw, Trash2, Upload } from "lucide-react";
+import { ChartPicker, type ChartChoice } from "../components/ChartPicker";
+import { FormEnvContext, RefInput } from "../components/FormInputs";
 import { ReviewDialog } from "../components/ReviewDialog";
 import { ReasonDialog } from "../components/SecretFields";
 import { YamlEditor } from "../components/YamlEditor";
-import { Badge, Button, Notice, PageHeader, inputClass } from "../components/ui";
+import { Badge, Button, Field, Notice, PageHeader, inputClass } from "../components/ui";
 import { HelmService, errorMessage, type HelmRelease, type PlanView, type ReleaseDetail } from "../lib/api";
 import { age } from "../lib/format";
 import { useClusters } from "../state/clusters";
@@ -26,6 +28,7 @@ export function HelmPage() {
   const { active, namespace } = useClusters();
   const [releases, setReleases] = useState<HelmRelease[] | null>(null);
   const [selected, setSelected] = useState<{ namespace: string; name: string } | null>(null);
+  const [installing, setInstalling] = useState(false);
   const [filter, setFilter] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [reload, setReload] = useState(0);
@@ -51,7 +54,19 @@ export function HelmPage() {
     <div className="flex h-full min-h-0 flex-col">
       <PageHeader
         title="Helm"
-        description="Releases installed with Helm. Change one through its values, roll back to an earlier revision, or uninstall it; every action shows the rendered difference first. Objects a release owns should be changed here, not edited directly."
+        description="Releases installed with Helm. Install charts from Artifact Hub or a repository, change values or the chart version, roll back, or uninstall; every action shows the rendered difference first."
+        actions={
+          <Button
+            variant="primary"
+            icon={<Plus className="size-4" />}
+            onClick={() => {
+              setSelected(null);
+              setInstalling(true);
+            }}
+          >
+            Install a chart
+          </Button>
+        }
       />
       <div className="grid min-h-0 flex-1 grid-cols-[minmax(16rem,22rem)_minmax(0,1fr)] gap-4">
         <section aria-label="Release list" className="flex min-h-0 flex-col rounded-lg border border-line bg-panel">
@@ -73,7 +88,10 @@ export function HelmPage() {
                   <button
                     aria-label={`${r.name} in ${r.namespace}`}
                     aria-current={isSel ? "true" : undefined}
-                    onClick={() => setSelected({ namespace: r.namespace, name: r.name })}
+                    onClick={() => {
+                      setInstalling(false);
+                      setSelected({ namespace: r.namespace, name: r.name });
+                    }}
                     className={`flex w-full flex-col gap-0.5 rounded-md px-2.5 py-1.5 text-left ${isSel ? "bg-panel-2" : "hover:bg-panel-2"}`}
                   >
                     <span className="flex items-center gap-2">
@@ -92,7 +110,18 @@ export function HelmPage() {
           </ul>
         </section>
         <section aria-label="Release details" className="min-h-0 overflow-y-auto rounded-lg border border-line bg-panel">
-          {selected ? (
+          {installing ? (
+            <InstallPanel
+              contextName={contextName}
+              defaultNamespace={namespace || "default"}
+              onCancel={() => setInstalling(false)}
+              onInstalled={(ns, name) => {
+                setInstalling(false);
+                setSelected({ namespace: ns, name });
+                setReload((n) => n + 1);
+              }}
+            />
+          ) : selected ? (
             <ReleaseView
               key={`${selected.namespace}/${selected.name}/${reload}`}
               contextName={contextName}
@@ -104,7 +133,7 @@ export function HelmPage() {
               }}
             />
           ) : (
-            <p className="p-4 text-[13px] text-muted">Choose a release.</p>
+            <p className="p-4 text-[13px] text-muted">Choose a release, or install a chart.</p>
           )}
         </section>
       </div>
@@ -112,7 +141,169 @@ export function HelmPage() {
   );
 }
 
-type Tab = "history" | "values" | "manifest" | "resources" | "notes" | "defaults";
+type Tab = "history" | "values" | "version" | "manifest" | "resources" | "notes" | "defaults";
+
+const NO_CHART: ChartChoice = { repo: "", chart: "", version: "", info: null };
+
+/** Install a chart as a new release: pick it, name the release, adjust values, review. */
+function InstallPanel({ contextName, defaultNamespace, onCancel, onInstalled }: { contextName: string; defaultNamespace: string; onCancel: () => void; onInstalled: (namespace: string, name: string) => void }) {
+  const [choice, setChoice] = useState<ChartChoice>(NO_CHART);
+  const [name, setName] = useState("");
+  const [ns, setNs] = useState(defaultNamespace);
+  const [createNs, setCreateNs] = useState(false);
+  const [values, setValues] = useState("");
+  const [valuesFor, setValuesFor] = useState("");
+  const [plan, setPlan] = useState<PlanView | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Start from the chosen version's own values.yaml, and the chart's name.
+  const key = `${choice.repo}|${choice.chart}|${choice.info?.version ?? ""}`;
+  useEffect(() => {
+    if (!choice.info || valuesFor === key) return;
+    setValues(choice.info.values);
+    setValuesFor(key);
+    setName((n) => n || choice.chart);
+  }, [choice.info, choice.chart, key, valuesFor]);
+
+  const preview = async () => {
+    if (!choice.info) return;
+    setBusy(true);
+    setError(null);
+    try {
+      setPlan(
+        await HelmService.PrepareInstall({
+          context: contextName,
+          namespace: ns,
+          name: name.trim(),
+          repo: choice.repo,
+          chart: choice.chart,
+          version: choice.version,
+          // Unchanged defaults aren't stored as your values.
+          values: values === choice.info.values ? "" : values,
+          createNamespace: createNs,
+        }),
+      );
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-4 p-4">
+      <div className="flex items-center gap-2">
+        <h2 className="flex items-center gap-2 text-[15px] font-semibold">
+          <Package className="size-4 text-muted" aria-hidden /> Install a chart
+        </h2>
+        <Button className="ml-auto" variant="ghost" onClick={onCancel}>
+          Cancel
+        </Button>
+      </div>
+      <ChartPicker value={choice} onChange={setChoice} />
+      {choice.info && (
+        <>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Release name" hint="Lowercase letters, digits and dashes.">
+              <input className={`${inputClass} font-mono`} value={name} maxLength={53} onChange={(e) => setName(e.target.value.toLowerCase())} spellCheck={false} />
+            </Field>
+            <div className="flex flex-col gap-1">
+              <span className="text-[12px] font-medium text-muted">Namespace</span>
+              <FormEnvContext.Provider value={{ contextName, namespace: defaultNamespace }}>
+                <RefInput label="Namespace" value={ns} onChange={(v) => setNs(v ?? "")} refSpec={{ type: "namespaces" }} root={{}} />
+              </FormEnvContext.Provider>
+              <label className="flex items-center gap-2 text-[12px] text-muted">
+                <input type="checkbox" checked={createNs} onChange={(e) => setCreateNs(e.target.checked)} /> Create the namespace if it doesn't exist
+              </label>
+            </div>
+          </div>
+          <div className="flex flex-col gap-1">
+            <span className="text-[12px] font-medium text-muted">Values (the chart's defaults; change what you need)</span>
+            <div className="h-80 overflow-hidden rounded-md border border-line">
+              <YamlEditor value={values} onChange={setValues} />
+            </div>
+          </div>
+          {error && <Notice tone="bad">{error}</Notice>}
+          <div>
+            <Button variant="primary" busy={busy} icon={<Eye className="size-4" />} disabled={!name.trim() || !ns.trim()} onClick={() => void preview()}>
+              Review install
+            </Button>
+          </div>
+        </>
+      )}
+      <ReviewDialog
+        plan={plan}
+        onClose={() => setPlan(null)}
+        onCommitted={() => {
+          setPlan(null);
+          onInstalled(ns, name.trim());
+        }}
+      />
+    </div>
+  );
+}
+
+/** Moves a release to another version of its chart, keeping or editing its values. */
+function VersionTab({ contextName, namespace, name, chart, currentVersion, values, onNeedValues, onPlan }: {
+  contextName: string;
+  namespace: string;
+  name: string;
+  chart: string;
+  currentVersion: string;
+  values: string | null;
+  onNeedValues: () => void;
+  onPlan: (p: PlanView) => void;
+}) {
+  const [choice, setChoice] = useState<ChartChoice>(NO_CHART);
+  const [edited, setEdited] = useState(values ?? "");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => setEdited(values ?? ""), [values]);
+
+  const review = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      onPlan(await HelmService.PrepareUpgradeChart(contextName, namespace, name, choice.repo, choice.chart, choice.version, edited));
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-3">
+      <p className="text-[12px] text-muted">
+        Upgrade to another version of the chart (now {chart} {currentVersion}). Helm releases don't record where their chart came from, so find it below: the search starts with the chart's name.
+      </p>
+      <ChartPicker initialQuery={chart} value={choice} onChange={setChoice} />
+      {choice.info &&
+        (values === null ? (
+          <div className="flex flex-col items-start gap-2">
+            <p className="text-[13px] text-muted">The upgrade keeps this release's own values. They can hold passwords, so they stay hidden until you load them.</p>
+            <Button icon={<Eye className="size-4" />} onClick={onNeedValues}>
+              Load the current values
+            </Button>
+          </div>
+        ) : (
+          <>
+            <span className="text-[12px] font-medium text-muted">Values for the new version (yours, not the chart's defaults)</span>
+            <div className="h-64 overflow-hidden rounded-md border border-line">
+              <YamlEditor value={edited} onChange={setEdited} />
+            </div>
+            {error && <Notice tone="bad">{error}</Notice>}
+            <div>
+              <Button variant="primary" busy={busy} icon={<Upload className="size-4" />} onClick={() => void review()}>
+                Review upgrade to {choice.chart} {choice.version}
+              </Button>
+            </div>
+          </>
+        ))}
+    </div>
+  );
+}
 
 function ReleaseView({ contextName, namespace, name, onChanged }: { contextName: string; namespace: string; name: string; onChanged: (gone: boolean) => void }) {
   const [d, setD] = useState<ReleaseDetail | null>(null);
@@ -167,6 +358,7 @@ function ReleaseView({ contextName, namespace, name, onChanged }: { contextName:
   const tabs: { id: Tab; label: string }[] = [
     { id: "history", label: `History (${(d.history ?? []).length})` },
     { id: "values", label: "Values" },
+    { id: "version", label: "Chart version" },
     { id: "manifest", label: "Manifest" },
     { id: "resources", label: `Resources (${(d.resources ?? []).length})` },
     ...(d.notes ? [{ id: "notes" as Tab, label: "Notes" }] : []),
@@ -287,6 +479,21 @@ function ReleaseView({ contextName, namespace, name, onChanged }: { contextName:
               </div>
             </div>
           ))}
+        {tab === "version" && (
+          <VersionTab
+            contextName={contextName}
+            namespace={namespace}
+            name={name}
+            chart={r.chart}
+            currentVersion={r.chartVersion}
+            values={values}
+            onNeedValues={() => (d.valuesNeedReason ? setAskReason(true) : void reveal(""))}
+            onPlan={(p) => {
+              setPlanKind("upgrade");
+              setPlan(p);
+            }}
+          />
+        )}
         {tab === "manifest" && (
           <>
             <p className="mb-2 text-[12px] text-muted">What Helm rendered for revision {r.revision}. Secret values are hidden.</p>

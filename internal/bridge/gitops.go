@@ -18,10 +18,15 @@ type OwnerView struct {
 }
 
 // GitOpsService shows Argo CD and Flux apps and asks them to act.
-type GitOpsService struct{ d Deps }
+type GitOpsService struct {
+	d         Deps
+	proposals *proposalStore
+}
 
 // NewGitOpsService returns the GitOps service.
-func NewGitOpsService(d Deps) *GitOpsService { return &GitOpsService{d: d} }
+func NewGitOpsService(d Deps) *GitOpsService {
+	return &GitOpsService{d: d, proposals: &proposalStore{items: map[string]*storedProposal{}}}
+}
 
 // Overview lists every Argo CD Application and Flux Kustomization and
 // HelmRelease the user can see.

@@ -3,26 +3,32 @@
 #
 # The lines below are called `modelines`. See `:help modeline`
 
-name: "kupi.exe"
+name: "kupi"
 arch: ${GOARCH}
 platform: "linux"
 version: "0.1.0"
-section: "default"
+section: "devel"
 priority: "extra"
-maintainer: ${GIT_COMMITTER_NAME} <${GIT_COMMITTER_EMAIL}>
+maintainer: "Iheb Amiri <353153826+ihebamiri@users.noreply.github.com>"
 description: "Kubernetes Pilot: a desktop app for managing Kubernetes clusters"
 vendor: "Iheb Amiri"
-homepage: "https://wails.io"
-license: "MIT"
+homepage: "https://github.com/ihebamiri/Kupi"
+license: "Apache-2.0"
 release: "1"
 
 contents:
-  - src: "./bin/kupi.exe"
-    dst: "/usr/local/bin/kupi.exe"
+  - src: "./bin/kupi"
+    dst: "/usr/bin/kupi"
+    file_info:
+      mode: 0755
   - src: "./build/appicon.png"
-    dst: "/usr/share/icons/hicolor/128x128/apps/kupi.exe.png"
-  - src: "./build/linux/kupi.exe.desktop"
-    dst: "/usr/share/applications/kupi.exe.desktop"
+    dst: "/usr/share/pixmaps/kupi.png"
+  - src: "./build/linux/kupi.desktop"
+    dst: "/usr/share/applications/kupi.desktop"
+  - src: "./LICENSE"
+    dst: "/usr/share/doc/kupi/LICENSE"
+  - src: "./NOTICE"
+    dst: "/usr/share/doc/kupi/NOTICE"
 
 # Default dependencies for the GTK4 + WebKitGTK 6.0 stack (Ubuntu 24.04+ / Debian 13+)
 depends:

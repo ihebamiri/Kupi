@@ -152,6 +152,31 @@ export interface EventView {
 }
 
 /**
+ * GitHubStatus says whether Kupi can open pull requests.
+ */
+export interface GitHubStatus {
+    "connected": boolean;
+    "login": string;
+    "vaultLocked": boolean;
+}
+
+/**
+ * GitOpsOwner is the app that manages an object, with where it deploys from.
+ */
+export interface GitOpsOwner {
+    "owner": gitops$0.Owner;
+    "repoUrl": string;
+    "path": string;
+    "target": string;
+    "canPropose": boolean;
+
+    /**
+     * Why explains when a pull request can't be proposed.
+     */
+    "why": string;
+}
+
+/**
  * HistoryQuery filters recorded history. Empty fields match everything.
  */
 export interface HistoryQuery {
@@ -197,6 +222,20 @@ export interface ImageView {
     "created": string;
     "dangling": boolean;
     "containers": number;
+}
+
+/**
+ * InstallRequest installs a chart from a repository as a new release.
+ */
+export interface InstallRequest {
+    "context": string;
+    "namespace": string;
+    "name": string;
+    "repo": string;
+    "chart": string;
+    "version": string;
+    "values": string;
+    "createNamespace": boolean;
 }
 
 /**
@@ -323,6 +362,20 @@ export interface PortOption {
 }
 
 /**
+ * ProposalView is a prepared pull request, shown before it's opened.
+ */
+export interface ProposalView {
+    "id": string;
+    "repo": string;
+    "base": string;
+    "file": string;
+    "fileUrl": string;
+    "diff": string;
+    "warnings": string[] | null;
+    "title": string;
+}
+
+/**
  * PullEvent reports a pull's progress.
  */
 export interface PullEvent {
@@ -332,6 +385,15 @@ export interface PullEvent {
     "status": string;
     "done": boolean;
     "error": string;
+}
+
+/**
+ * RegistryLogin is a saved login, without its password.
+ */
+export interface RegistryLogin {
+    "host": string;
+    "username": string;
+    "updated": string;
 }
 
 /**

@@ -23,6 +23,7 @@ const ACTION_LABEL: Record<string, string> = {
   "helm-upgrade": "Upgrade",
   "helm-rollback": "Roll back",
   "helm-uninstall": "Uninstall",
+  "helm-install": "Install",
 };
 
 /**

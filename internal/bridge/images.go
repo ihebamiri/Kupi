@@ -353,11 +353,13 @@ func (s *ImageService) Pull(ctx context.Context, ref string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	// A saved login for the image's registry is used when the vault is unlocked.
+	auth := s.loginFor(ref)
 	id := randomID()
 	go func() {
 		pctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
 		defer cancel()
-		err := c.Pull(pctx, ref, func(p engine.PullProgress) {
+		err := c.Pull(pctx, ref, auth, func(p engine.PullProgress) {
 			s.d.Emit.Emit(EventPull, PullEvent{ID: id, Ref: ref, Percent: p.Percent, Status: p.Status})
 		})
 		ev := PullEvent{ID: id, Ref: ref, Percent: 100, Done: true, Status: "Pulled"}

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"helm.sh/helm/v4/pkg/action"
+	chartv2 "helm.sh/helm/v4/pkg/chart/v2"
 	helmkube "helm.sh/helm/v4/pkg/kube"
 	rspb "helm.sh/helm/v4/pkg/release/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -55,6 +56,19 @@ type HelmUpgrade struct {
 	// FromRevision is the revision that was reviewed. The upgrade fails if
 	// the release has moved on.
 	FromRevision int
+	// Chart, when set, replaces the release's chart (another version, or
+	// another chart). Nil keeps the chart the release has.
+	Chart *chartv2.Chart
+}
+
+// HelmInstall installs a chart as a new release.
+type HelmInstall struct {
+	Namespace string
+	Name      string
+	Chart     *chartv2.Chart
+	// Values are the user-supplied values; the chart's defaults fill in the rest.
+	Values          map[string]any
+	CreateNamespace bool
 }
 
 // HelmMutator changes Helm releases. Reserved for internal/guard, like
@@ -62,6 +76,9 @@ type HelmUpgrade struct {
 type HelmMutator interface {
 	// HelmUpgrade runs an upgrade, or a server-side dry run of one.
 	HelmUpgrade(ctx context.Context, req HelmUpgrade, dryRun bool) (*rspb.Release, error)
+	// HelmInstall installs a new release; dryRun renders and validates it
+	// against the cluster without creating anything.
+	HelmInstall(ctx context.Context, req HelmInstall, dryRun bool) (*rspb.Release, error)
 	HelmRollback(ctx context.Context, namespace, name string, revision, fromRevision int) error
 	HelmUninstall(ctx context.Context, namespace, name string, fromRevision int) error
 }
@@ -198,6 +215,9 @@ func (h *helmClient) HelmUpgrade(ctx context.Context, req HelmUpgrade, dryRun bo
 		return nil, ErrReleaseChanged
 	}
 	ch := cur.Chart
+	if req.Chart != nil {
+		ch = req.Chart
+	}
 	if ch == nil {
 		return nil, errors.New("the release has no stored chart")
 	}
@@ -223,6 +243,37 @@ func (h *helmClient) HelmUpgrade(ctx context.Context, req HelmUpgrade, dryRun bo
 	r, err := up.RunWithContext(ctx, req.Name, ch, values)
 	if err != nil {
 		return nil, fmt.Errorf("helm upgrade: %w", err)
+	}
+	return asRelease(r)
+}
+
+func (h *helmClient) HelmInstall(ctx context.Context, req HelmInstall, dryRun bool) (*rspb.Release, error) {
+	if req.Chart == nil {
+		return nil, errors.New("no chart to install")
+	}
+	cfg, err := h.config(req.Namespace)
+	if err != nil {
+		return nil, err
+	}
+	in := action.NewInstall(cfg)
+	in.ReleaseName = req.Name
+	in.Namespace = req.Namespace
+	in.CreateNamespace = req.CreateNamespace
+	in.Timeout = helmTimeout
+	in.WaitStrategy = helmkube.HookOnlyStrategy
+	in.Description = "Installed by Kupi"
+	if dryRun {
+		in.DryRunStrategy = action.DryRunServer
+	}
+	values := req.Values
+	if values == nil {
+		values = map[string]any{}
+	}
+	ctx, cancel := context.WithTimeout(ctx, helmTimeout)
+	defer cancel()
+	r, err := in.RunWithContext(ctx, req.Chart, values)
+	if err != nil {
+		return nil, fmt.Errorf("helm install: %w", err)
 	}
 	return asRelease(r)
 }

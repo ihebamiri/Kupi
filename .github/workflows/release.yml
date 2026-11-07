@@ -1,0 +1,127 @@
+name: Release
+
+# Push a tag like v0.2.0 to build Windows and Linux packages and attach
+# them, with checksums, to a draft GitHub release. Review the draft, then
+# publish it by hand.
+on:
+  push:
+    tags: ["v*.*.*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing tag to build, for example v0.1.0
+        required: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ inputs.tag || github.ref_name }}
+
+env:
+  TAG: ${{ inputs.tag || github.ref_name }}
+  GH_REPO: ${{ github.repository }}
+  GH_TOKEN: ${{ github.token }}
+
+# Every action is pinned to a full commit SHA (tag in the comment).
+
+jobs:
+  draft:
+    name: Create the draft release
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Create it unless it exists
+        run: |
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" --draft --verify-tag --title "Kupi ${TAG#v}" --generate-notes
+          fi
+
+  windows:
+    name: Windows package
+    needs: draft
+    runs-on: windows-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.TAG }}
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install the Wails CLI
+        run: go install github.com/wailsapp/wails/v3/cmd/wails3@v3.1.0
+      - name: Set the version
+        shell: bash
+        run: bash scripts/set-version.sh "$TAG"
+      - name: Build
+        run: wails3 task windows:build
+      - name: Package
+        shell: pwsh
+        run: |
+          $version = $env:TAG.TrimStart('v')
+          $stage = "dist/kupi-$version-windows-amd64"
+          New-Item -ItemType Directory -Force "$stage/docs" | Out-Null
+          Copy-Item bin/kupi.exe, LICENSE, NOTICE $stage
+          Copy-Item docs/USER_GUIDE.md, docs/TESTING-WINDOWS.md "$stage/docs"
+          Copy-Item -Recurse docs/testdata "$stage/docs/testdata"
+          Compress-Archive -Path "$stage/*" -DestinationPath "dist/kupi-$version-windows-amd64.zip"
+      - name: Upload
+        shell: bash
+        run: gh release upload "$TAG" dist/*.zip --clobber
+
+  linux:
+    name: Linux packages
+    needs: draft
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      # linuxdeploy (used for the AppImage) is itself an AppImage; runners have no FUSE.
+      APPIMAGE_EXTRACT_AND_RUN: "1"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.TAG }}
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install build dependencies
+        run: sudo apt-get update && sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends build-essential pkg-config libgtk-4-dev libwebkitgtk-6.0-dev file
+      - name: Install the Wails CLI
+        run: go install github.com/wailsapp/wails/v3/cmd/wails3@v3.1.0
+      - name: Set the version
+        run: bash scripts/set-version.sh "$TAG"
+      - name: Build and package
+        run: |
+          wails3 task linux:build
+          wails3 task linux:create:appimage
+          wails3 task linux:create:deb
+          wails3 task linux:create:rpm
+      - name: Collect
+        run: bash scripts/collect-linux-packages.sh "${TAG#v}" dist
+      - name: Upload
+        run: gh release upload "$TAG" dist/* --clobber
+
+  checksums:
+    name: Checksums
+    needs: [windows, linux]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Add SHA256SUMS
+        run: |
+          mkdir dist && cd dist
+          gh release download "$TAG" --pattern 'kupi-*'
+          sha256sum kupi-* > SHA256SUMS
+          cat SHA256SUMS
+          gh release upload "$TAG" SHA256SUMS --clobber
