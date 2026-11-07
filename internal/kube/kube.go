@@ -84,6 +84,10 @@ type Reader interface {
 	WatchMetadata(ctx context.Context, gvr schema.GroupVersionResource, namespace string, opts metav1.ListOptions) (watch.Interface, error)
 	// OpenAPI returns the server's OpenAPI v3 document for one group/version.
 	OpenAPI(ctx context.Context, gv schema.GroupVersion) ([]byte, error)
+	// ServiceProxyGet reads a path from a Service through the API server's
+	// service proxy (needs the services/proxy permission). Used for
+	// Prometheus queries, so no port-forward is needed.
+	ServiceProxyGet(ctx context.Context, namespace, service, port, path string, params map[string]string) ([]byte, error)
 }
 
 // ApplyOptions controls a server-side apply.

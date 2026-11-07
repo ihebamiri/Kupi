@@ -16,6 +16,7 @@ import * as IncidentService from "./incidentservice.js";
 import * as LocalClusterService from "./localclusterservice.js";
 import * as LogService from "./logservice.js";
 import * as MetricsService from "./metricsservice.js";
+import * as NetworkService from "./networkservice.js";
 import * as ResourceService from "./resourceservice.js";
 import * as SecretService from "./secretservice.js";
 import * as SettingsService from "./settingsservice.js";
@@ -38,6 +39,7 @@ export {
     LocalClusterService,
     LogService,
     MetricsService,
+    NetworkService,
     ResourceService,
     SecretService,
     SettingsService,
@@ -54,6 +56,7 @@ export type {
     Connection,
     ContainerView,
     ContextInfo,
+    Endpoint,
     EngineInfo,
     EnvCopy,
     EventView,
@@ -72,6 +75,7 @@ export type {
     PlanView,
     PodMetrics,
     PortOption,
+    PrometheusStatus,
     ProposalView,
     PullEvent,
     RegistryLogin,
@@ -91,5 +95,6 @@ export type {
     TerminalSession,
     ToolInfo,
     ToolsReport,
+    TrafficCheck,
     TypeRef
 } from "./models.js";

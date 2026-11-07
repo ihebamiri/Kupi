@@ -310,3 +310,17 @@ func (q sizeQueue) Next() *remotecommand.TerminalSize {
 		return &remotecommand.TerminalSize{Width: s.Width, Height: s.Height}
 	}
 }
+
+// maxProxyBytes caps one service-proxy answer.
+const maxProxyBytes = 8 << 20
+
+func (r *reader) ServiceProxyGet(ctx context.Context, namespace, service, port, path string, params map[string]string) ([]byte, error) {
+	data, err := r.s.cs.CoreV1().Services(namespace).ProxyGet("http", service, port, path, params).DoRaw(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if len(data) > maxProxyBytes {
+		return nil, fmt.Errorf("the answer from %s/%s is larger than %d MB", namespace, service, maxProxyBytes>>20)
+	}
+	return data, nil
+}

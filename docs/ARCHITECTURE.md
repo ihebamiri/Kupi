@@ -24,7 +24,7 @@ Contents:
 
 ## 1. What was built
 
-Kupi (Kubernetes Pilot) is a desktop app for managing Kubernetes clusters, from a local test cluster on a laptop to production. The scope of this build is version 0.1 of the design doc plus the version 0.2 "Observe" map and the rest of the 0.2 features, delivered in nine milestones.
+Kupi (Kubernetes Pilot) is a desktop app for managing Kubernetes clusters, from a local test cluster on a laptop to production. The scope of this build is version 0.1 of the design doc, the version 0.2 "Observe" map and the rest of the 0.2 features, and most of 0.3, delivered in fifteen milestones.
 
 | Milestone | What it added |
 |---|---|
@@ -37,8 +37,14 @@ Kupi (Kubernetes Pilot) is a desktop app for managing Kubernetes clusters, from 
 | 7. Secrets and vault | Secret viewing without leaks, audited reveals, safe editing, TLS and registry Secrets, exposure scan; a local encrypted vault |
 | 8. Operations | Change history, saved warnings, incident view, Argo CD and Flux awareness, Helm releases, laptop mode |
 | 9. Final checks | Security sweep, dependency audit, build checks, fixes, CI hardening, documentation |
+| 10. Maintainer feedback | Multi-object manifests and file upload, form suggestions and sliders, pods on the map, Settings, the integrated terminal, the logo and a new look |
+| 11. Releases | A tag builds a Windows zip and Linux packages (AppImage, deb, rpm, tar.gz) into a draft GitHub release with checksums |
+| 12. Helm charts | Installing charts from Artifact Hub, chart repositories and OCI registries; upgrading a release to another chart version |
+| 13. Image security | Private registry logins for pulls, vulnerability scans with Trivy, signature checks with cosign |
+| 14. GitOps pull requests | Changes to objects that Argo CD or Flux manage are proposed as GitHub pull requests |
+| 15. Observe, round 2 | Prometheus as a long-range metrics source, "can A talk to B?" from NetworkPolicies, replay of recorded changes on the map |
 
-In numbers: 64 Go source files (about 14,700 lines) in 30 internal packages, 72 TypeScript/React files (about 8,600 lines), and 43 Go test files with 99 test functions plus 34 frontend tests. Every milestone was checked three ways: unit tests, integration tests against a real k3d cluster, and clicking through the UI.
+Every milestone was checked with unit tests and, where it touches a cluster, integration tests against a real k3d cluster and by clicking through the UI. The parts that need outside services (Artifact Hub, GitHub, Prometheus, Trivy, cosign) are covered by unit tests with fakes; [PROGRESS.md](PROGRESS.md) says which were also checked live.
 
 The project status, milestone by milestone, with what was verified and what is still missing, is in [PROGRESS.md](PROGRESS.md).
 
@@ -250,6 +256,8 @@ Audited actions include every change (one entry per object for a multi-object ma
 
 When a metrics view is open, a sampler per context reads metrics-server every 10 seconds and keeps one hour in memory. It stops after 2 minutes with no viewer. The Overview page shows nodes against their allocatable capacity and the busiest pods; the pod Metrics tab charts CPU and memory with request and limit lines.
 
+**Prometheus (`prom`).** For longer ranges (6 hours, 24 hours, 7 days), the Metrics tab asks a Prometheus running in the cluster. `prom.Find` looks for its Service by the names and labels the Prometheus Operator, kube-prometheus-stack and the prometheus chart use. Queries go through the API server's service proxy (`Reader.ServiceProxyGet`, answers capped at 8 MB), so they use the user's own credentials and RBAC, and no port-forward is needed. Kupi runs only two fixed queries (CPU rate and memory working set of one pod, about 120 points per range); the namespace and pod name are validated as DNS names before they go into the query, so nothing from the UI becomes PromQL.
+
 ### Port-forwards (`forward`, `kube/forward.go`)
 
 A forward targets a Pod, a Service (named target ports are resolved) or a workload. Kupi picks a ready pod, listens on **127.0.0.1 only**, and when the pod restarts or is replaced it reconnects to a new ready pod on the same local port. Every forward start is permission-checked (`pods/portforward`) and audited.
@@ -269,9 +277,16 @@ The frontend draws it with React Flow and lays it out with ELK, left to right, r
 
 Selecting a workload or Service calls `CanvasService.Pods`. It follows ownership (Deployment → ReplicaSets → Pods, CronJob → Jobs → Pods; a Service uses its selector) and returns pod summaries, worst first. The map adds up to 12 pod cards under the selected node and pans to them. The side panel lists them all, and a pod opens its own detail panel.
 
+**Can A talk to B? (`netpol`, bridge `network.go`, frontend `MapTools`).** `NetworkService.CanReach` takes two endpoints (a pod, a workload, or a Service as the destination), picks a running pod for each (a Service maps its port to the pod's target port, named ports included), and reads the NetworkPolicies of both namespaces and the namespace labels. `netpol.Evaluate` applies Kubernetes' rules: a pod is isolated for a direction only when some policy selects it with that policy type; traffic is allowed when any selecting policy has a rule whose peers (pod selector, namespace selector, both together, or an IP block with exceptions) and ports (numbers, names, `endPort` ranges) match. It answers for egress at the source and ingress at the destination separately, with the policies that decided each. It reads policies only; it sends no traffic, and the answer assumes the network plugin enforces policies.
+
+**Replay (frontend `MapTools`).** The replay bar reads the changes `history` recorded (`HistoryService.Changes`, up to 500, oldest first) and steps through them, highlighting each changed object on the map and saying which field manager made the change.
+
 ### Images (`engine`, bridge `images.go`)
 
 `engine` is a small Docker Engine API client that talks over the local Unix socket or Windows named pipe and works with Docker and Podman. TCP endpoints are refused. It covers images, inspect, layer history, Docker Hub search, pulls with progress, remove, prune, disk usage, and (for laptop mode) containers, stats and resource caps. The Images page also warns about images that run as root and about look-alike names of official images, and shows environment variable *names* only, since values can hide baked-in secrets.
+
+- **Registry logins** (bridge `registries.go`) are vault items named `registry-<host>` with `username` and `password` keys, so they're encrypted like everything else in the vault. A pull looks up the login for the image's registry (Docker Hub's aliases included) and sends it in the `X-Registry-Auth` header; passwords never go back to the UI.
+- **Scans and signatures** (`imagescan`) run [Trivy](https://trivy.dev) (`trivy image --format json --scanners vuln`) and [cosign](https://www.sigstore.dev) (`cosign verify`, keyless) as optional programs through `procutil`, with an absolute path and an argument list, after the image reference is validated. The signature check accepts any Sigstore identity and shows who signed, so the user decides whether that's the publisher they expect. When a tool isn't installed, the UI says where to get it.
 
 ### Local clusters (`localk8s`)
 
@@ -320,12 +335,15 @@ One request builds the report:
 
 Actions ask the tool to do its own work and go through the Guard: refresh (compare with Git now) and sync for Argo CD; reconcile, suspend and resume for Flux. Repository links open only `https://` addresses; `git@host:org/repo` is converted to its web address.
 
+**Pull requests (`gitpr`, bridge `gitops_pr.go`).** When the user edits an object an app manages, `GitOpsService.ProposeChange` finds the app's GitHub repository, branch and path, lists the YAML files under that path (GitHub's trees API, at most 400 files of 1 MB each), and finds the document whose kind, namespace and name match. It replaces only that document, keeping the file's other documents and comments, and returns the diff. `OpenPullRequest` creates a `kupi/<kind>-<name>-<time>` branch, commits the file and opens the pull request, through GitHub's REST API with the token from the vault item `github-token`. The cluster isn't touched, so this isn't a Guard action; it's audited. Secrets are refused, and only GitHub is supported.
+
 ### Helm (`kube/helm.go`, `helmrel`, guard `helm.go`)
 
 Kupi uses the Helm v4 Go SDK; it never runs the `helm` program.
 
 - **Reading.** Release list, history, the rendered manifest with Secret values hidden, the objects a release owns, notes, and the chart's default values. A release's own values often contain passwords, so they stay hidden until you ask; showing them is audited, with a reason on production.
-- **Upgrade.** Upgrades keep the release's own chart and change its values. The preview is a server-side dry run, so the cluster's admission checks and the chart's values schema both apply, and the review shows the diff of every rendered object.
+- **Upgrade.** Change the values with the release's own chart, or move to another chart version (`PrepareHelmUpgradeChart`). The preview is a server-side dry run, so the cluster's admission checks and the chart's values schema both apply, and the review shows the diff of every rendered object.
+- **Install** (`PrepareHelmInstall`). Charts come from `charts`: Artifact Hub search (only the search text is sent), classic repositories (`index.yaml` over https only, each download checked against the index's digest, size caps of 64 MB for indexes and 32 MB for charts) and OCI registries (Helm's registry client). The release name is validated, permissions are checked for every kind the chart renders, the install is dry-run on the server, and the review warns about cluster-wide objects and hooks (which a dry run can't preview).
 - **Rollback.** Roll back to any earlier revision, previewed as a diff.
 - **Uninstall.** Typed confirmation on production.
 - Every action checks again, just before running, that the release is still at the revision you reviewed.
@@ -425,7 +443,8 @@ The vault key itself is in the OS password store under the name `kupi`, unless y
 - **Unit tests** (`go test ./...`): each package with fakes for the cluster, Docker and the password store. They include the architecture tests.
 - **Integration tests** (`go test -tags integration ./internal/...`, against the k3d cluster `kupi-test`): real create, update, delete and Secret flows through the Guard, history recording, Helm install, upgrade, rollback and uninstall, image loading, laptop-mode caps, the Windows password store and clipboard.
 - **Frontend tests** (`cd frontend && npm test`, Vitest): YAML and diff helpers, schema paths, units, templates, `.env` parsing, key/value editing and more.
-- **CI** (`.github/workflows/ci.yml`): tests and builds on Ubuntu and Windows, gofmt, go vet, integration tests in a k3d cluster, and govulncheck. `codeql.yml` runs CodeQL on Go and TypeScript. Every action is pinned to a commit SHA. Neither workflow has run yet, since the repository has no remote.
+- **CI** (`.github/workflows/ci.yml`): tests and builds on Ubuntu 24.04 (GTK 4 and WebKitGTK 6.0) and Windows, gofmt, go vet, integration tests in a k3d cluster, and govulncheck. `codeql.yml` runs CodeQL on Go and TypeScript. Every action is pinned to a commit SHA.
+- **Releases** (`.github/workflows/release.yml`): pushing a tag like `v0.2.0` stamps the version (`scripts/set-version.sh`), creates a **draft** GitHub release, builds the Windows zip and the Linux tar.gz, AppImage, deb and rpm, uploads them, and adds `SHA256SUMS`. The maintainer reviews the draft and publishes it. Builds aren't code-signed, so Windows SmartScreen warns on first start.
 
 ---
 
@@ -453,26 +472,25 @@ The design doc's technology table names all of these. Kupi avoids the full Docke
 
 **Not built yet:**
 
-- Installing new Helm charts from repositories or Artifact Hub, and upgrading to another chart version.
-- Pull requests to Git for GitOps-managed objects. Argo CD ApplicationSets aren't listed.
-- Prometheus as a metrics source.
-- The "Build" drag-and-drop canvas, activity replay, and the "can A talk to B" NetworkPolicy check.
-- Image vulnerability scanning and signature checks.
-- Private registry logins for Kupi's own image pulls.
+- Argo CD ApplicationSets aren't listed. Pull requests work with GitHub only.
+- The "Build" drag-and-drop canvas.
 - A system tray.
+- Code signing (the maintainer chose not to buy a certificate).
 
 **Limits of what was built:**
 
-- History covers only the time Kupi is connected.
+- History, and so replay, covers only the time Kupi is connected.
 - Laptop mode works with k3d only.
 - On Linux, clipboard managers may keep copied values.
 - A Helm upgrade that conflicts with a field someone edited by hand fails rather than showing the conflict in the preview.
+- "Can A talk to B" reads NetworkPolicies only: it doesn't know Cilium or Calico's own policy types, and it can't tell whether the network plugin enforces policies.
+- GitOps pull requests need the object written out as plain YAML under the app's path; Kustomize patches and Helm values aren't edited.
 
 **Not verified yet:**
 
-- Daily use in the native window (it starts; the features were clicked through in a browser).
-- The Linux build, and the vault on Linux.
-- The CI workflows.
+- Daily use in the native window (it starts on Windows and Linux; the features were clicked through in a browser).
+- Live runs against Artifact Hub, GitHub, Prometheus, Trivy and cosign (unit tests with fakes cover them).
+- The release workflow (it runs on the first tag).
 
 **Deviations from the design doc:**
 
@@ -494,15 +512,18 @@ internal/
   bridge/                   Wails services: the only API the UI can call
   buildmode/                production vs development flag
   catalog/                  resource types → sidebar groups
+  charts/                   Helm charts: Artifact Hub, repositories, OCI
   clipboard/                self-clearing clipboard; Windows history exclusion
   diff/                     unified diffs
   engine/                   Docker/Podman Engine API client
   forward/                  port-forward manager
   gitops/                   Argo CD and Flux
+  gitpr/                    GitHub pull requests for GitOps-managed objects
   graph/                    the Observe map's model
   guard/                    the single checkpoint for changes
   helmrel/                  safe views of Helm releases
   history/                  change and warning recorder
+  imagescan/                Trivy scans and cosign signature checks
   incident/                 incident report
   kube/                     sessions, Reader/Mutator, Helm client, port-forward
   kubeconfig/               kubeconfig loading
@@ -510,8 +531,10 @@ internal/
   live/                     watches, log streams, shells
   localk8s/                 k3d/kind/minikube, image loading, usage and caps
   metrics/                  metrics-server sampler
+  netpol/                   NetworkPolicy evaluation ("can A talk to B?")
   profile/                  profile detection and rules
   procutil/                 starting helper programs without a console window
+  prom/                     pod history from Prometheus
   redact/                   hiding Secret values
   schema/                   OpenAPI schemas → form fields
   secrets/                  Secret details, TLS, registry logins, exposure scan
@@ -527,7 +550,8 @@ frontend/
   src/state/                settings, clusters, navigation, forwards
   src/lib/                  API re-exports and pure helpers (with tests)
   bindings/                 generated by Wails, never edited by hand
-build/                      Wails build tasks, icons, Windows manifest and version info
+build/                      Wails build tasks, icons, Windows manifest, Linux packaging (nfpm, AppImage)
+scripts/                    release helpers: version stamping, collecting Linux packages
 docs/                       this document, the user guide, testing guides, progress, test data
-.github/workflows/          CI and CodeQL
+.github/workflows/          CI, CodeQL and releases
 ```

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"time"
 
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -13,6 +14,7 @@ import (
 	"github.com/ihebamiri/kupi/internal/forward"
 	"github.com/ihebamiri/kupi/internal/kube"
 	"github.com/ihebamiri/kupi/internal/metrics"
+	"github.com/ihebamiri/kupi/internal/prom"
 	"github.com/ihebamiri/kupi/internal/validate"
 )
 
@@ -246,4 +248,48 @@ func (f forwardSession) Reader() kube.Reader { return f.s.Reader() }
 
 func (f forwardSession) PortForward(ctx context.Context, ns, pod string, local, remote int, onReady func(int)) error {
 	return f.s.PortForward(ctx, ns, pod, local, remote, onReady)
+}
+
+// PrometheusStatus says whether the cluster has a Prometheus Kupi can read.
+type PrometheusStatus struct {
+	Found  bool   `json:"found"`
+	Where  string `json:"where"`
+	Reason string `json:"reason"`
+}
+
+// Prometheus looks for a Prometheus Service in the cluster.
+func (s *MetricsService) Prometheus(ctx context.Context, contextName string) PrometheusStatus {
+	sess, err := s.d.session(contextName)
+	if err != nil {
+		return PrometheusStatus{Reason: err.Error()}
+	}
+	ep, err := prom.Find(ctx, sess.Reader())
+	if err != nil {
+		return PrometheusStatus{Reason: err.Error()}
+	}
+	return PrometheusStatus{Found: true, Where: ep.String()}
+}
+
+// PodHistory reads a pod's CPU and memory over the last hours from
+// Prometheus (1 hour to 31 days).
+func (s *MetricsService) PodHistory(ctx context.Context, contextName, namespace, pod string, hours int) ([]metrics.Sample, error) {
+	sess, err := s.d.session(contextName)
+	if err != nil {
+		return nil, err
+	}
+	if hours < 1 || hours > 31*24 {
+		return nil, fmt.Errorf("choose between 1 hour and 31 days")
+	}
+	ep, err := prom.Find(ctx, sess.Reader())
+	if err != nil {
+		return nil, err
+	}
+	out, err := prom.PodHistory(ctx, sess.Reader(), ep, namespace, pod, time.Duration(hours)*time.Hour)
+	if err != nil {
+		return nil, err
+	}
+	if out == nil {
+		out = []metrics.Sample{}
+	}
+	return out, nil
 }

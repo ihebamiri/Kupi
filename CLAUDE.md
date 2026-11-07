@@ -18,7 +18,9 @@ Milestone status: `docs/PROGRESS.md` — read it at the start of every session a
 - `internal/secrets/` — Secret details without values, TLS checks, registry logins, exposure scan. `internal/clipboard/` copies secrets from Go to the OS clipboard and clears them.
 - `internal/vault/` — local age-encrypted vault; its key lives in the OS password store or behind a passphrase.
 - `internal/history/` — records changes (with field manager and diff) and warning events while connected; `internal/incident/` builds the incident view from it.
-- `internal/gitops/` — Argo CD and Flux apps and ownership; `internal/helmrel/` — safe views of Helm releases (the Helm SDK itself lives in `internal/kube`, writes go through the Guard).
+- `internal/gitops/` — Argo CD and Flux apps and ownership; `internal/gitpr/` — GitHub pull requests for objects they manage. `internal/helmrel/` — safe views of Helm releases; `internal/charts/` — finding and loading charts (Artifact Hub, repositories, OCI). The Helm SDK itself lives in `internal/kube`; writes go through the Guard.
+- `internal/imagescan/` — Trivy scans and cosign signature checks, run as optional helper programs.
+- `internal/netpol/` — NetworkPolicy evaluation ("can A talk to B?"); `internal/prom/` — pod history from an in-cluster Prometheus, through the API server proxy, with fixed queries only.
 - `internal/laptop/` — idle stop and wake for local clusters; resource caps live in `internal/localk8s`.
 - `internal/settings/` — the user's preferences (`settings.json`), clamped to safe ranges.
 - `internal/terminal/` — the integrated terminal: the user's own shell in a pseudo-terminal (ConPTY on Windows, `/dev/ptmx` on Linux). See rules 3 and 6.

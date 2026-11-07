@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Background, Controls, MiniMap, ReactFlow, ReactFlowProvider, useReactFlow, type Edge, type Node } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { RefreshCw, Search } from "lucide-react";
+import { History, RefreshCw, Route, Search } from "lucide-react";
+import { ReplayBar, TrafficPanel } from "../components/MapTools";
 import { CanvasNode, NamespaceFrame, POD_CHIP_H, POD_CHIP_W, PodChip, type CanvasNodeData, type PodChipData } from "../components/CanvasNode";
 import { DetailPanel } from "../components/DetailPanel";
 import { PodList } from "../components/PodList";
@@ -72,6 +73,9 @@ function Canvas() {
   const [selected, setSelected] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
+  const [tool, setTool] = useState<"traffic" | "replay" | null>(null);
+  const [traffic, setTraffic] = useState<{ from: string; to: string; allowed: boolean | null } | null>(null);
+  const [replayFocus, setReplayFocus] = useState<string | null>(null);
   const [pods, setPods] = useState<{ id: string; result: PodsResult } | null>(null);
   const [podsError, setPodsError] = useState<string | null>(null);
   const [selectedPod, setSelectedPod] = useState<PodSummary | null>(null);
@@ -152,6 +156,19 @@ function Canvas() {
   }, [podsForId]);
   const exposedSet = useMemo(() => (graph ? exposed(graph.nodes, graph.edges) : new Set<string>()), [graph]);
   const focus = useMemo(() => (selected && graph ? neighbourhood(selected, graph.edges, 2) : null), [selected, graph]);
+  // The traffic check and the replay each light up the objects they're about.
+  const highlight = useMemo(() => {
+    if (tool === "traffic" && traffic) return new Set([traffic.from, traffic.to]);
+    if (tool === "replay" && replayFocus) return new Set([replayFocus]);
+    return null;
+  }, [tool, traffic, replayFocus]);
+  useEffect(() => {
+    if (!highlight) return;
+    const ids = [...highlight].filter((id) => nodesById.has(id));
+    if (ids.length === 0) return;
+    const t = window.setTimeout(() => void fitView({ nodes: ids.map((id) => ({ id })), padding: 0.6, duration: 400, maxZoom: 1.1 }), 60);
+    return () => window.clearTimeout(t);
+  }, [highlight, nodesById, fitView]);
   const q = query.trim().toLowerCase();
 
   const flowNodes: Node[] = useMemo(() => {
@@ -177,6 +194,10 @@ function Canvas() {
       }
       if (focus) dimmed = !focus.has(n.id);
       if (q) dimmed = !(n.name.toLowerCase().includes(q) || n.kind.toLowerCase().includes(q));
+      if (highlight) {
+        dimmed = !highlight.has(n.id);
+        if (highlight.has(n.id)) ring = "accent";
+      }
       const data: CanvasNodeData = { node: n, ring, dimmed, selected: n.id === selected };
       out.push({ id: n.id, type: "kupi", position: { x: p.x, y: p.y }, data, parentId: p.parent, extent: p.parent ? "parent" : undefined, draggable: true });
       if (n.id === selected && settings.mapShowPods && podList.length > 0) {
@@ -193,7 +214,7 @@ function Canvas() {
       }
     }
     return out;
-  }, [positions, nodesById, overlay, exposedSet, focus, q, selected, podList, selectedPod, settings.mapShowPods]);
+  }, [positions, nodesById, overlay, exposedSet, focus, q, selected, podList, selectedPod, settings.mapShowPods, highlight]);
 
   const flowEdges: Edge[] = useMemo(
     () =>
@@ -221,8 +242,24 @@ function Canvas() {
               zIndex: 19,
             }))
           : [],
+      ).concat(
+        tool === "traffic" && traffic && nodesById.has(traffic.from) && nodesById.has(traffic.to)
+          ? [
+              {
+                id: "traffic-check",
+                source: traffic.from,
+                target: traffic.to,
+                animated: true,
+                label: traffic.allowed === null ? "?" : traffic.allowed ? "allowed" : "blocked",
+                labelStyle: { fill: traffic.allowed ? "var(--kupi-good)" : "var(--kupi-bad)", fontSize: 11, fontWeight: 600 },
+                labelBgStyle: { fill: "var(--kupi-bg)" },
+                style: { stroke: traffic.allowed === null ? "var(--kupi-muted)" : traffic.allowed ? "var(--kupi-good)" : "var(--kupi-bad)", strokeWidth: 2.5, strokeDasharray: "6 4" },
+                zIndex: 30,
+              } as Edge,
+            ]
+          : [],
       ),
-    [graph, focus, selected, podList],
+    [graph, focus, selected, podList, tool, traffic, nodesById],
   );
 
   if (!active) return null;
@@ -269,6 +306,28 @@ function Canvas() {
                 className="h-8 w-40 rounded-md border border-line bg-bg pr-2 pl-7 text-[13px] focus:border-accent focus:outline-none"
               />
             </div>
+            <Button
+              variant={tool === "traffic" ? "secondary" : "ghost"}
+              icon={<Route className="size-4" />}
+              title="Can one workload reach another? (NetworkPolicies)"
+              onClick={() => {
+                setTool((t) => (t === "traffic" ? null : "traffic"));
+                setTraffic(null);
+              }}
+            >
+              Check traffic
+            </Button>
+            <Button
+              variant={tool === "replay" ? "secondary" : "ghost"}
+              icon={<History className="size-4" />}
+              title="Step through recorded changes on the map"
+              onClick={() => {
+                setTool((t) => (t === "replay" ? null : "replay"));
+                setReplayFocus(null);
+              }}
+            >
+              Replay
+            </Button>
             <Button variant="ghost" busy={loading} icon={<RefreshCw className="size-4" />} aria-label="Refresh" onClick={() => void load()} />
           </div>
         </div>
@@ -305,9 +364,23 @@ function Canvas() {
             />
           </ReactFlow>
           <Legend overlay={overlay} />
+          {tool === "replay" && <ReplayBar contextName={active.name} namespace={namespace} onFocus={setReplayFocus} onClose={() => setTool(null)} />}
         </div>
       </div>
-      {sel && (
+      {tool === "traffic" && graph && (
+        <div className="w-[360px] shrink-0 overflow-y-auto">
+          <TrafficPanel
+            contextName={active.name}
+            nodes={graph.nodes}
+            onClose={() => {
+              setTool(null);
+              setTraffic(null);
+            }}
+            onResult={(from, to, allowed) => setTraffic({ from, to, allowed })}
+          />
+        </div>
+      )}
+      {sel && tool !== "traffic" && (
         <div className="flex w-[46%] max-w-[760px] min-w-[420px] flex-col gap-2">
           {(sel.flags ?? []).length > 0 && (
             <div className="rounded-lg border border-line bg-panel px-3 py-2 text-[12px]">

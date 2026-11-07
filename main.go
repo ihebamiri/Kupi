@@ -84,6 +84,7 @@ func main() {
 			application.NewService(bridge.NewHelmService(deps)),
 			application.NewService(bridge.NewSettingsService(deps)),
 			application.NewService(bridge.NewTerminalService(deps)),
+			application.NewService(bridge.NewNetworkService(deps)),
 		},
 		Assets: application.AssetOptions{
 			Handler:    application.AssetFileServerFS(assets),

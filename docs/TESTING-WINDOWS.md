@@ -20,6 +20,9 @@ Time needed: about 30 minutes for setup, 1 to 2 hours for the tests.
 | k3d | yes, for these tests | Creates the local Kubernetes cluster inside Docker | 5.9.0 (Kubernetes v1.35.5, k3s) |
 | kubectl | yes, for these tests | Loads the test data from the command line (Kupi itself doesn't need it) | 1.36.1 |
 | Helm | yes, for these tests | Installs the demo Helm release (Kupi has Helm built in and doesn't need it) | any 3.x or 4.x |
+| Trivy | optional | Image vulnerability scans (L6), from [trivy.dev](https://trivy.dev) | any recent |
+| cosign | optional | Image signature checks (L7), from [sigstore.dev](https://docs.sigstore.dev/cosign/system_config/installation/) | 2.x or newer |
+| A GitHub account | optional | Pull requests for GitOps-managed objects (K4) | |
 
 Kupi supports Kubernetes 1.34 to 1.37. A computer with 16 GB of memory is comfortable; 8 GB works if few other programs run.
 
@@ -94,6 +97,7 @@ docs\TESTING-WINDOWS.md        (this file)
 docs\testdata\demo-workloads.yaml
 docs\testdata\gitops-fixtures.yaml
 docs\testdata\multi-object.yaml
+docs\testdata\network-policies.yaml
 docs\testdata\charts\demo-web\…
 ```
 
@@ -234,7 +238,30 @@ Each step says what to do (**Do**) and what you should see (**Expect**).
 - [ ] **E4.** Do: click `demo-web-config`. Expect: it and `demo-web` are highlighted, and the panel says a change affects `demo-web`.
 - [ ] **E5.** Do: click the `ticker` Deployment. Expect: the map moves so that `ticker` and two small pod cards under it are in view (each with its name, "Running · 1/1"), and a **Pods** list above the detail panel shows both with status, ready, restarts, node and age.
 - [ ] **E6.** Do: click one of the pod cards. Expect: the panel shows that pod, with Logs, Shell, Events and Metrics tabs, and **← Back to Deployment ticker** returns to the Deployment.
-- [ ] **E7.** Do: click the Service `demo-web`. Expect: the pods it sends traffic to fan out under it.
+- [ ] **E7.** Do: choose the namespace `kupi-multi` (created in D9) and click the Service `hello`. Expect: the two pods it sends traffic to fan out under it.
+- [ ] **E8.** Do: in PowerShell, add two NetworkPolicies: nothing may reach pods in `kupi-multi`, except the `ticker` pods of `kupi-demo` on the `hello` pods' `http` port (8080).
+
+  ```powershell
+  kubectl --context k3d-kupi-test apply -f docs\testdata\network-policies.yaml
+  ```
+
+- [ ] **E9.** Do: Map, namespace **All namespaces** → **Check traffic**. From **Deployment kupi-demo/ticker**, To **Service kupi-multi/hello**, port `80`, TCP → **Check**. Expect: **Allowed**, `ticker-… → hello-…`, "Leaving the source" allowed (no policy selects it), "Entering the destination" allowed by `hello-from-ticker` (2 policies), the note "Service port 80 goes to pod port 8080", and a dashed green "allowed" line from `ticker` to `hello` on the map.
+- [ ] **E10.** Do: From **Pod kupi-demo/crasher**, same destination → Check. Expect: **Blocked**: entering the destination isn't allowed by either policy. The line turns red.
+- [ ] **E11.** Do: From `ticker`, To **Deployment kupi-multi/hello**, port `9090` → Check. Expect: **Blocked** (only port 8080 is allowed).
+- [ ] **E12.** (Optional: check the answers against real traffic; k3s enforces NetworkPolicies.) Do:
+
+  ```powershell
+  kubectl --context k3d-kupi-test -n kupi-demo exec deploy/ticker -- wget -qO- -T 3 http://hello.kupi-multi
+  ```
+
+  Expect: the nginx welcome page's HTML. Then from a pod without the `app: ticker` label:
+
+  ```powershell
+  kubectl --context k3d-kupi-test -n kupi-demo run probe --rm -i --restart=Never --image=busybox:1.36 -- wget -qO- -T 3 http://hello.kupi-multi
+  ```
+
+  Expect: "download timed out".
+- [ ] **E13.** Do: close the traffic panel (×), then **Replay** → **last 24 hours**. Expect: "N changes recorded", the newest selected, and the changed object highlighted on the map with what changed it (for example "changed by Kupi"). Use the arrows and the slider, then **Play**: it steps forward every 1.5 seconds and the map follows. Close the replay bar.
 
 ### F. Port forwards
 
@@ -291,12 +318,25 @@ Each step says what to do (**Do**) and what you should see (**Expect**).
 - [ ] **J6.** Do: change replicas to `"lots"` (text) → Review upgrade. Expect: Helm rejects it (the chart's schema wants a number) and nothing changes.
 - [ ] **J7.** Do: History → **Roll back to this** on revision 1. Expect: the diff shows `greeting` and `replicas` going back. Apply. Expect: revision 4, deployed.
 - [ ] **J8.** Do: in PowerShell, `helm --kube-context k3d-kupi-test history demo-web -n kupi-demo`. Expect: the same four revisions; Kupi's are described "Upgraded by Kupi" and "Rolled back to 1 by Kupi".
+- [ ] **J9.** Do: **Install a chart** → Search Artifact Hub for `podinfo` → pick **podinfo** (repository podinfo, by stefanprodan). Expect: its versions, the newest selected, with its description. Choose an **older** version (for example 6.7.0), release name `podinfo`, namespace `kupi-charts`, tick **Create the namespace if it doesn't exist**, keep the values → **Review install**. Expect: a review listing the Deployment and Service it creates. Apply. Expect: `podinfo` in the release list, revision 1, deployed, and its pod Running.
+- [ ] **J10.** Do: open `podinfo` → **Chart version** → the search starts with "podinfo"; pick it and the **newest** version → **Load the current values** → Review upgrade. Expect: the diff shows the image tag and chart labels moving to the new version. Apply. Expect: revision 2 with the new chart version.
+- [ ] **J11.** Do: Install a chart → **Repository address**: `oci://ghcr.io/stefanprodan/charts`, chart `podinfo` → **Find versions**. Expect: the versions from the registry. Cancel.
+- [ ] **J12.** Do: Install a chart → Repository address `http://example.com`, chart `x` → Find versions. Expect: refused, only https is allowed.
+- [ ] **J13.** (Optional, about 600 MB of memory: Prometheus for long-range metrics.) Do: Install a chart → Artifact Hub `prometheus` → **prometheus** from prometheus-community. Release name `prometheus`, namespace `monitoring`, create the namespace. In the values, set `enabled: false` under `alertmanager`, `kube-state-metrics`, `prometheus-node-exporter` and `prometheus-pushgateway` → Review install. Expect: warnings that it creates cluster-wide objects (ClusterRole, ClusterRoleBinding). Apply, and wait about 5 minutes. Then open a ticker pod → **Metrics**. Expect: a time range with **6 hours**, **24 hours** and **7 days**; choosing one says "From Prometheus (monitoring/prometheus-server:80)" and draws the minutes Prometheus has collected so far.
 
 ### K. GitOps
 
 - [ ] **K1.** Do: sidebar → GitOps. Expect: `shop` (Argo CD Application, Out of sync, Healthy) and `platform` (Flux Kustomization, Ready), with sources and revisions.
 - [ ] **K2.** Do: `platform` → **Suspend** → apply. Expect: the diff `+ suspend: true`, then a Suspended badge and a **Resume** button. Press **Resume** and apply.
 - [ ] **K3.** Do: `shop` → **Repository**. Expect: your browser opens `https://github.com/example/shop-deploy` (a sample address that doesn't exist).
+- [ ] **K4.** (Optional, needs a GitHub account.) A pull request instead of an edit:
+  1. On GitHub, create a **private** repository, for example `kupi-pr-test`, and add a file `apps/ticker.yaml` holding the ticker Deployment (copy it from `docs\testdata\demo-workloads.yaml`, the part between the `---` lines that has `name: ticker`).
+  2. Point the sample Argo CD app at it, with Kupi: sidebar → Custom resources → **Applications** → `shop` → YAML → **Edit with form or YAML**. In the YAML, under `source:`, set `repoURL: https://github.com/<you>/kupi-pr-test` (your GitHub user name in place of `<you>`) and `path: apps`, keep `targetRevision: main` → Preview change → apply.
+
+  3. On GitHub: Settings → Developer settings → Fine-grained tokens → **Generate new token**, only for `kupi-pr-test`, with **Contents: Read and write** and **Pull requests: Read and write**.
+  4. In Kupi: unlock the vault (H5), GitOps → **GitHub** box → paste the token → **Check and save**. Expect: "Connected as <you>".
+  5. Open the `ticker` Deployment → YAML → **Edit with form or YAML**. Expect: a yellow notice that Argo CD manages it, with **Propose in Git**. Change Copies running to 3 → **Propose in Git**. Expect: "Open a pull request?" with your repository, "into main", the file `apps/ticker.yaml` and a diff with `replicas: 2 → 3`. Press **Open pull request**. Expect: a link to the new pull request; on GitHub it changes only that line, from a branch named `kupi/deployment-ticker-…`.
+  6. Close the pull request on GitHub, delete the token there, and in Kupi press **Forget token**.
 
 ### L. Images
 
@@ -304,6 +344,9 @@ Each step says what to do (**Do**) and what you should see (**Expect**).
 - [ ] **L2.** Do: search Docker Hub for `busybox`, press **Versions** to see its tags, then pull `busybox:1.36` (type it in the image box and press **Pull**). Expect: progress, then the image in the local list.
 - [ ] **L3.** Do: on `busybox:1.36` → **Load into cluster** → `k3d-kupi-test`. Expect: a success message once it's on the node.
 - [ ] **L4.** Do: **Details** on an image. Expect: layers, ports, user and environment variable names only.
+- [ ] **L5.** (Optional, needs an account on a registry with a private image, for example Docker Hub or ghcr.io.) Do: unlock the vault, **Registry logins** tab → registry (`docker.io` or `ghcr.io`), user name, an access token → **Save login**. Then pull your private image. Expect: the pull works; without the login it fails with "unauthorized" or "not found". The password is never shown again; **Delete** removes the login.
+- [ ] **L6.** (Needs Trivy.) Do: **Details** on `busybox:1.36` → **Scan for vulnerabilities**. Expect: after a while (the first scan downloads Trivy's database), "No known vulnerabilities" or a table sorted worst first, with package, installed and fixed versions. Without Trivy, the button is disabled and a note says where to get it.
+- [ ] **L7.** (Needs cosign.) Do: pull `cgr.dev/chainguard/static:latest`, open its **Details** → **Check signature**. Expect: **Signed**, with the signer (a `github.com/chainguard-images/…` workflow) and the issuer `https://token.actions.githubusercontent.com`. Then **Check signature** on `busybox:1.36`. Expect: "No signature was found for this image."
 
 ### M. Local clusters and laptop mode
 
@@ -349,7 +392,7 @@ Each step says what to do (**Do**) and what you should see (**Expect**).
 
 ### P. Audit log and closing
 
-- [ ] **P1.** Do: **Audit** (bottom of the sidebar). Expect: your scales, edits, the four objects of D9 as separate entries, Secret reveals and copies, shell, Helm upgrade and rollback, GitOps suspend, laptop caps, terminal-enabled, terminal-opened and terminal-disabled, newest first.
+- [ ] **P1.** Do: **Audit** (bottom of the sidebar). Expect: your scales, edits, the four objects of D9 as separate entries, Secret reveals and copies, shell, Helm install, upgrade and rollback, GitOps suspend, laptop caps, terminal-enabled, terminal-opened and terminal-disabled, newest first (and, if you did K4, github-token-saved, gitops-pr-opened and github-token-deleted).
 - [ ] **P2.** Do: **Verify**. Expect: the chain is reported intact.
 - [ ] **P3.** Do: copy a Secret value (G3), then close Kupi within 30 seconds and paste in Notepad. Expect: nothing is pasted; Kupi cleared it on exit.
 - [ ] **P4.** Do: look at Kupi in the taskbar and in File Explorer (`kupi.exe`). Expect: the new icon, a navy tile with a white K and a cyan arrow.

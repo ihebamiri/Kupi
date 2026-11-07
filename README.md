@@ -19,9 +19,9 @@
 
 </div>
 
-Kupi puts everything you need to run Kubernetes in one window: every resource type, logs, a shell, live metrics, a map of how things connect, Helm releases, Argo CD and Flux, Secrets, local images and k3d clusters, and a terminal that follows the cluster you're working on. Every change goes through one checkpoint, with a dry run, a diff and an audit trail, so the same app is quick on your laptop and careful on production.
+Kupi puts everything you need to run Kubernetes in one window: every resource type, logs, a shell, live metrics, a map of how things connect, Helm charts and releases, Argo CD and Flux, Secrets, local images and k3d clusters, and a terminal that follows the cluster you're working on. Every change goes through one checkpoint, with a dry run, a diff and an audit trail, so the same app is quick on your laptop and careful on production.
 
-> **Status:** early development (v0.1). It's ready for local and test clusters; try it on production read-only first.
+> **Status:** early development (v0.x). It's ready for local and test clusters; try it on production read-only first.
 
 ## Why Kupi
 
@@ -35,8 +35,8 @@ Kupi puts everything you need to run Kubernetes in one window: every resource ty
 
 ### Explore and fix
 
-- **Every resource type**, custom resources included, with the same columns as `kubectl get`, live updates, events, YAML, logs (one pod or a whole workload), a shell and CPU and memory charts.
-- **Map** of how Ingresses, Services, workloads, ConfigMaps, Secrets and storage connect, with health, exposure and security overlays. Select a workload to see its pods.
+- **Every resource type**, custom resources included, with the same columns as `kubectl get`, live updates, events, YAML, logs (one pod or a whole workload), a shell and CPU and memory charts (days of history when the cluster runs Prometheus).
+- **Map** of how Ingresses, Services, workloads, ConfigMaps, Secrets and storage connect, with health, exposure and security overlays. Select a workload to see its pods, ask **"can A talk to B?"** of the NetworkPolicies, or **replay** recent changes on the map.
 - **Incident view:** what's failing right now, the log lines that explain it, and what changed just before.
 - **History** of every change while you're connected, with the tool that made it (kubectl, Helm, Argo CD…) and a diff.
 
@@ -47,7 +47,8 @@ Kupi puts everything you need to run Kubernetes in one window: every resource ty
 - **Forms from the cluster's own schema**, kept in sync with a YAML editor. Fields suggest the namespaces, ConfigMaps, Secrets and other objects that exist; CPU, memory and replicas have sliders.
 - **Whole manifests:** paste or open a file with many objects. Kupi checks each one and applies them in a safe order with one confirmation.
 - **Scale, restart, delete, port-forward** from any object.
-- **Helm releases:** values, upgrade with a diff, rollback, uninstall. **Argo CD and Flux:** status, sync, reconcile, suspend, resume.
+- **Helm:** install charts from Artifact Hub, chart repositories or OCI registries; edit values, change chart version, roll back or uninstall, each with a diff.
+- **Argo CD and Flux:** status, sync, reconcile, suspend, resume. Changes to objects they manage become **GitHub pull requests** instead of edits that get reverted.
 
 <br clear="right" />
 
@@ -59,7 +60,7 @@ Kupi puts everything you need to run Kubernetes in one window: every resource ty
 
 ### Work locally
 
-- **Images:** browse local images, search Docker Hub, pull, load into a cluster, deploy.
+- **Images:** browse local images, search Docker Hub, pull (with private registry logins from the vault), scan for vulnerabilities (Trivy), check signatures (cosign), load into a cluster, deploy.
 - **k3d clusters:** create, start, stop, delete. **Laptop mode** caps a cluster's memory and CPU and stops it when idle.
 - **Port forwards** that reconnect on their own, on 127.0.0.1 only.
 
@@ -90,7 +91,7 @@ An opt-in terminal with your own shell (PowerShell, bash…), switched on throug
 | Platform | Get it | Needs |
 |---|---|---|
 | Windows 10/11 (x64) | [Releases](https://github.com/ihebamiri/Kupi/releases): unzip and run `kupi.exe` | Microsoft Edge WebView2 (built into Windows 11) |
-| Linux (x64) | Coming soon; build from source meanwhile | GTK 4 and WebKitGTK 6.0 |
+| Linux (x64) | [Releases](https://github.com/ihebamiri/Kupi/releases): AppImage, .deb, .rpm or .tar.gz | GTK 4.10+ and WebKitGTK 6.0 (Ubuntu 24.04, Debian 13, Fedora 40 or newer) |
 
 Kupi reads your kubeconfig (`KUBECONFIG` or `~/.kube/config`) and never edits it. It supports Kubernetes 1.34 to 1.37. kubectl, Helm and Docker are optional: Kupi has its own Kubernetes client and Helm, and uses Docker or Podman only for local images and k3d clusters.
 
@@ -149,14 +150,14 @@ Integration tests run against a local k3d cluster: `wails3 task cluster:up`, the
 - [User guide](docs/USER_GUIDE.md): where everything is and what it does.
 - [How Kupi works](docs/ARCHITECTURE.md): the components, from the ground up.
 - [Testing on Windows](docs/TESTING-WINDOWS.md): a step-by-step manual test with sample data.
+- [Testing on Linux](docs/TESTING-LINUX.md): installing the Linux packages and what to check that differs from Windows.
 - [Progress](docs/PROGRESS.md): what's done, verified and still to come.
 
 ## Roadmap
 
-- Linux release builds and packages (AppImage, .deb, .rpm).
-- Installing charts from Helm repositories and Artifact Hub.
-- Pull requests to Git for GitOps-managed objects.
-- Prometheus as a metrics source, and image vulnerability scanning.
+- Argo CD ApplicationSets, and pull requests for GitLab and other Git hosts.
+- A "Build" canvas: drag workloads, Services and config together and get the YAML.
+- A system tray with running port-forwards.
 
 ## Contributing
 

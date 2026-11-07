@@ -109,7 +109,7 @@ The cluster has already checked the change in a dry run, including your permissi
 
 ### The audit log
 
-Every change, failed change, shell session and Secret reveal is recorded, see [Audit log](#18-audit-log).
+Every change, failed change, shell session and Secret reveal is recorded, see [Audit log](#20-audit-log).
 
 ---
 
@@ -147,7 +147,7 @@ Click a row to open it. The tabs depend on the type:
 | Tab | What it shows |
 |---|---|
 | Overview | Labels, owner ("Controlled by"), creation time, UID; containers and their state for pods |
-| Metrics | Pods only: CPU and memory over the last hour, with request and limit lines (needs metrics-server) |
+| Metrics | Pods only: CPU and memory with request and limit lines. The last hour comes from metrics-server; when the cluster runs Prometheus, **6 hours**, **24 hours** and **7 days** come from it |
 | YAML | The object as YAML, read-only, without noise fields. **Edit with form or YAML** opens it in the editor. For Secrets: values hidden, with **Open in Secrets** |
 | Events | Kubernetes events about the object (Kubernetes keeps them about an hour) |
 | History | Changes Kupi recorded for this object: who changed it and what changed (see [History](#9-history)) |
@@ -189,6 +189,8 @@ A live diagram of how things connect, left to right: Ingress or HTTPRoute → Se
 - **Pods of a workload.** Click a Deployment, StatefulSet, DaemonSet, ReplicaSet, Job, CronJob or Service, and its pods fan out under it as small cards (failing ones first, with their status, readiness and restarts). The side panel lists every pod with its node and age. Click a pod, on the map or in the list, for its logs, shell, events and metrics; **Back to …** returns to the workload. Settings → Map can turn the cards off.
 - **Find on the map** searches names.
 - With "All namespaces", each namespace is a frame.
+- **Check traffic** answers "can A talk to B?" from the cluster's NetworkPolicies. Pick where the traffic starts (a pod or workload), where it goes (a Service, pod or workload), a port (0 for any) and the protocol, then **Check**. Kupi picks a real pod on each side, follows a Service port to the pod port, and evaluates both directions: **leaving the source** (its egress policies) and **entering the destination** (its ingress policies). The answer is **Allowed** or **Blocked**, with the policies that decided it, and a dashed green or red line joins the two on the map. It reads the policies; it doesn't send traffic. NetworkPolicies only work when the cluster's network plugin enforces them.
+- **Replay** steps through the changes [History](#9-history) recorded (last hour, 24 hours or 7 days) on the map, oldest first. Each step highlights the object that changed and says what changed it and when. Use the arrows or the slider, or **Play** to go through them one every 1.5 seconds.
 
 ---
 
@@ -239,14 +241,23 @@ The list shows every Helm release with its chart, revision and status (deployed,
 | Resources | The objects the release owns |
 | Notes | The chart's notes |
 | Chart defaults | The chart's own default values, for reference |
+| Chart version | Upgrade the release to another version of its chart, or to another chart |
 
 Actions, each with a review dialog:
 
 - **Review upgrade** (Values tab): change values and upgrade with the same chart. The review shows exactly which objects change, after the cluster and the chart's values schema have checked it.
+- **Chart version** tab: Helm releases don't record where their chart came from, so find the chart (the search starts with the chart's name, see [Installing a chart](#installing-a-chart)) and pick a version. The release keeps its own values: **Load the current values** shows them (audited, like the Values tab) so you can edit them for the new version. Then review the upgrade like above.
 - **Roll back to this** (History tab): returns to an earlier revision. Helm records it as a new revision.
 - **Uninstall:** removes the release and its objects (on production, type the name). Volumes created by StatefulSets are kept.
 
-Not available yet: installing new charts and changing a release's chart version.
+### Installing a chart
+
+**Install a chart** (top of the page) finds a chart in one of two ways:
+
+- **Search Artifact Hub:** type a name; results show the repository, the latest version and a badge for verified publishers. Only your search text goes to artifacthub.io.
+- **Repository address:** an `https://` chart repository (`https://charts.example.com`) or an OCI registry (`oci://ghcr.io/org/charts`), and the chart name. Plain `http://` is refused.
+
+Then choose a version (the newest is picked; deprecated versions are marked), a release name and namespace, and edit the values, which start as the chart's defaults. **Review install** renders the chart and dry-runs it on the cluster, so the review lists every object it would create. It warns about cluster-wide objects (CRDs, ClusterRoles, webhooks) and about hooks, which Helm runs during the install and the dry run can't preview. Kupi checks each chart download against the digest in the repository's index.
 
 ---
 
@@ -268,6 +279,14 @@ Actions (each through the review dialog) ask the tool to act:
 - **Flux:** **Reconcile** applies from the source now. **Suspend** stops Flux from reconciling, so live edits stay but drift from Git; **Resume** lets it reconcile again.
 
 To change what these tools deploy, change the Git repository: live edits are reverted at the next sync.
+
+### Proposing a change as a pull request
+
+When you edit an object that Argo CD or Flux manages (Create or edit, or **Edit with form or YAML**), a yellow notice says so. If the app's source is a GitHub repository, **Propose in Git** finds the file under the app's path that holds the object, puts your edited object in its place (other objects and comments in the file are kept), and shows the diff. **Open pull request** creates a branch named `kupi/…`, commits the file and opens the pull request; its link appears when it's done. The cluster itself isn't touched: the change arrives when the pull request is merged and the tool syncs.
+
+- It needs a GitHub token, saved once in the **GitHub** box on the GitOps page and kept encrypted in your [vault](#13-vault) (so the vault must be unlocked). Use a fine-grained token with read and write access to the repository's contents and pull requests, or a classic token with the `repo` scope.
+- Secrets are refused: they don't belong in Git as plain text.
+- Only GitHub is supported for now. Kustomize patches and Helm values aren't edited: Kupi needs the object written out as plain YAML in the repository.
 
 ---
 
@@ -337,6 +356,11 @@ The vault keeps credentials **on your computer, encrypted**, so you don't need Y
 - **Load into cluster:** copies a local image into a local k3d, kind or minikube cluster, so pods can use it without a registry. Kupi checks the image really arrived on every node.
 - **Deploy:** opens the editor with a secure Deployment for the image.
 - **Disk usage:** remove untagged images, unused images, or the build cache.
+- **Registry logins** (tab): user names and passwords or tokens for private registries, kept encrypted in your [vault](#13-vault). Kupi uses the matching login when it pulls from that registry; pulls from other registries are anonymous.
+- **Security** (in an image's details):
+  - **Scan for vulnerabilities** runs [Trivy](https://trivy.dev) on your computer and lists known vulnerabilities, worst first, with the fixed version when there is one.
+  - **Check signature** runs [cosign](https://www.sigstore.dev) to check the image's Sigstore signature, and shows who signed it. A valid signature only means *someone* signed it: check that the signer is the publisher you expect.
+  - Both tools are optional; install them and reopen the details. Nothing is uploaded by Kupi.
 
 ---
 

@@ -1,7 +1,7 @@
 # Testing Kupi
 
 - **On Windows, by hand:** [TESTING-WINDOWS.md](TESTING-WINDOWS.md): install the prerequisites, create a test cluster with sample data, then check every feature step by step.
-- **On Linux, by hand:** coming next.
+- **On Linux, by hand:** [TESTING-LINUX.md](TESTING-LINUX.md): which distributions work, installing the packages, and the checks that differ from Windows.
 
 ## Automated tests
 

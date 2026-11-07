@@ -38,3 +38,18 @@ export function Overview(contextName: string, $namespace: string): $CancellableP
 export function Pod(contextName: string, $namespace: string, pod: string): $CancellablePromise<$models.PodMetrics> {
     return $Call.ByID(115946245, contextName, $namespace, pod);
 }
+
+/**
+ * PodHistory reads a pod's CPU and memory over the last hours from
+ * Prometheus (1 hour to 31 days).
+ */
+export function PodHistory(contextName: string, $namespace: string, pod: string, hours: number): $CancellablePromise<metrics$0.Sample[] | null> {
+    return $Call.ByID(3411113919, contextName, $namespace, pod, hours);
+}
+
+/**
+ * Prometheus looks for a Prometheus Service in the cluster.
+ */
+export function Prometheus(contextName: string): $CancellablePromise<$models.PrometheusStatus> {
+    return $Call.ByID(3941751598, contextName);
+}

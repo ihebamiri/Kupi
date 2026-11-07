@@ -12,6 +12,9 @@ import * as helmrel$0 from "../helmrel/models.js";
 import * as metrics$0 from "../metrics/models.js";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
+import * as netpol$0 from "../netpol/models.js";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
 import * as secrets$0 from "../secrets/models.js";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
@@ -118,6 +121,15 @@ export interface ContextInfo {
     "connected": boolean;
     "serverVersion": string;
     "editingEnabled": boolean;
+}
+
+/**
+ * Endpoint is one side of a traffic check: a pod, a workload or a Service.
+ */
+export interface Endpoint {
+    "kind": string;
+    "namespace": string;
+    "name": string;
 }
 
 /**
@@ -362,6 +374,15 @@ export interface PortOption {
 }
 
 /**
+ * PrometheusStatus says whether the cluster has a Prometheus Kupi can read.
+ */
+export interface PrometheusStatus {
+    "found": boolean;
+    "where": string;
+    "reason": string;
+}
+
+/**
  * ProposalView is a prepared pull request, shown before it's opened.
  */
 export interface ProposalView {
@@ -591,6 +612,24 @@ export interface ToolsReport {
     "tools": ToolInfo[] | null;
     "serverVersion": string;
     "skew": string;
+}
+
+/**
+ * TrafficCheck is the answer to "can From reach To on Port?".
+ */
+export interface TrafficCheck {
+    "allowed": boolean;
+    "egress": netpol$0.Side;
+    "ingress": netpol$0.Side;
+    "fromPod": string;
+    "toPod": string;
+
+    /**
+     * Port is the pod port checked (a Service port is translated).
+     */
+    "port": number;
+    "protocol": string;
+    "notes": string[] | null;
 }
 
 /**

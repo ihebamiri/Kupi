@@ -1,6 +1,6 @@
 # Progress
 
-Scope of the current build: v0.1 + the v0.2 Observe canvas and v0.2 features, per the design doc.
+Scope of the current build: v0.1, the v0.2 Observe canvas and v0.2 features, and the v0.3 items in milestones 11 to 15, per the design doc. Milestone 16 (code signing) is skipped: the maintainer chose not to buy a certificate.
 
 ## Milestones
 
@@ -14,6 +14,12 @@ Scope of the current build: v0.1 + the v0.2 Observe canvas and v0.2 features, pe
 - [x] 8. Helm, Argo CD / Flux awareness, resource history, incident view, laptop mode.
 - [x] 9. Final checks before maintainer testing.
 - [x] 10. Maintainer feedback, round 1: multi-object manifests and file upload, form suggestions and sliders, pods on the map, Settings, the integrated terminal, logo and visual polish.
+- [x] 11. Release automation and Linux packages.
+- [x] 12. Helm charts from Artifact Hub, repositories and OCI registries; changing a release's chart version.
+- [x] 13. Image security: registry logins, vulnerability scans, signature checks.
+- [x] 14. GitOps pull requests.
+- [x] 15. Observe, round 2: Prometheus history, "can A talk to B?", replay of changes.
+- [ ] 16. Code signing: skipped.
 
 ## Milestone 1 status
 
@@ -190,7 +196,64 @@ Requested by the maintainer after the first round of testing on Windows. Done an
 - Fixed in passing: helper programs (k3d, docker) no longer flash a console window on Windows (`internal/procutil`).
 - Not verified yet: the native confirmation dialog in the release build (browser testing used the development-only auto-confirm), the Linux terminal (compiles and vets for Linux; needs a run in WSL2).
 
-## Environment
+## Repository and CI (between milestones 10 and 11)
+
+- Published at https://github.com/ihebamiri/Kupi; history rewritten so every commit is authored by ihebamiri, and the Go module renamed to `github.com/ihebamiri/kupi`. README, SECURITY, CONTRIBUTING, CODE_OF_CONDUCT, NOTICE, and issue and pull request templates.
+- CI runs on Ubuntu 24.04 (GTK 4 and WebKitGTK 6.0; Wails 3.1 dropped GTK 3) and Windows, and passes. Fixed on the way: the vault's password-store check now opens the backend instead of trusting that it's listed (no Secret Service on CI runners), and the exec integration test retries while the container starts.
+
+## Linux status
+
+Built, packaged and run in Ubuntu 24.04 on WSL2:
+
+- `wails3 task linux:build` with GTK 4.14 and WebKitGTK 6.0; the AppImage, .deb, .rpm and tar.gz build, and the .deb installs with `apt` (pulling in its libraries) and puts Kupi in the applications menu.
+- The native window opens under WSLg, and server mode works from the Windows browser.
+- The integrated terminal: bash in `/dev/ptmx`, `TERM=xterm-256color`, resizing, colours and UTF-8.
+- Debian 12 and Ubuntu 22.04 can't run Kupi: GTK 4.8 lacks the file dialog Wails needs. Ubuntu 24.04, Debian 13 or Fedora 40 and newer are required.
+- `docs/TESTING-LINUX.md` is the Linux test guide.
+
+Not verified on Linux yet: the vault (GNOME Keyring, KWallet and the passphrase fallback), the clipboard on a full desktop, and a desktop other than WSLg.
+
+## Milestone 11 status
+
+- `.github/workflows/release.yml`: a `v*.*.*` tag stamps the version (`scripts/set-version.sh` into `version.go`, `build/config.yml`, `nfpm.yaml` and `info.json`), creates a draft release, builds the Windows zip and the Linux tar.gz, AppImage, .deb and .rpm (`scripts/collect-linux-packages.sh`), and uploads `SHA256SUMS`. It needs only `contents: write` (to create the release) and the built-in token; actions are pinned to SHAs.
+- `build/linux/nfpm/nfpm.yaml` fixed: package name `kupi`, the Linux binary, the menu entry and icon, LICENSE and NOTICE, Apache-2.0, the repository homepage, and dependencies on `libgtk-4-1` and `libwebkitgtk-6.0-4`. The menu entry is named "Kupi".
+- Verified: the same package steps run locally in Ubuntu 24.04 and produce installable packages.
+- Not verified: the workflow itself; it runs on the first tag. Builds aren't signed (milestone 16 skipped), so Windows SmartScreen warns on first start.
+
+## Milestone 12 status
+
+- `internal/charts`: Artifact Hub search (only the search text is sent), chart versions and details, and loading a chart from an https repository (index and chart size caps, digest checked against the index) or an OCI registry (Helm's registry client). Plain http and other schemes are refused.
+- Guard: `PrepareHelmInstall` (validated release name, permission check for every kind the chart renders, server-side dry run, warnings for cluster-wide objects and hooks, optional namespace creation) and `PrepareHelmUpgradeChart` (upgrade to another chart or version, same checks as value upgrades). The architecture tests still confine the Helm SDK to `internal/kube` and its writes to the Guard.
+- UI: **Install a chart** on the Helm page (search or repository address, version, values, review) and a **Chart version** tab on each release.
+- Verified: unit tests (digest mismatch, http refused, size caps, OCI references, install and upgrade plans with a fake Helm).
+- Not verified live: Artifact Hub, a real repository and an OCI registry, and an install on k3d from the UI. The testing guide's J9–J13 cover them.
+
+## Milestone 13 status
+
+- Registry logins: stored as vault items `registry-<host>`, used for pulls through Docker's `X-Registry-Auth` header (Docker Hub's host aliases match). Passwords never return to the UI.
+- `internal/imagescan`: Trivy (`trivy image --format json --scanners vuln`) and cosign (`cosign verify`, keyless, any identity, with the signer shown) as optional programs run through `procutil`. The UI says where to get them when missing.
+- UI: a **Registry logins** tab on the Images page, and **Scan for vulnerabilities** and **Check signature** in an image's details.
+- Verified: unit tests (Trivy and cosign output parsing with recorded output, login lookup, registry names).
+- Not verified live: Trivy and cosign aren't installed on the development PC; a pull with a real private registry login.
+
+## Milestone 14 status
+
+- `internal/gitpr`: GitHub only. Finds the YAML document for the object under the app's path (trees and blobs APIs, at most 400 files of 1 MB), replaces only that document (other documents and comments kept), creates a `kupi/…` branch, commits and opens the pull request.
+- Bridge: the GitHub token lives in the vault item `github-token` (checked against GitHub when saved); `GitSource`, `ProposeChange` and `OpenPullRequest`. Secrets are refused. Saving and forgetting the token and opening a pull request are audited; the cluster isn't touched, so it's not a Guard action.
+- UI: a **GitHub** box on the GitOps page, and **Propose in Git** in the editor for objects Argo CD or Flux manage.
+- Verified: unit tests against a fake GitHub API (finding the document, replacing it, branch and pull request calls, error cases).
+- Not verified live: a real pull request (testing guide K4).
+- Not built: Argo CD ApplicationSets; GitLab and other hosts.
+
+## Milestone 15 status
+
+- `internal/prom` and `MetricsService.Prometheus` / `PodHistory`: finds Prometheus by the usual Service names and labels and asks it through the API server's service proxy (`Reader.ServiceProxyGet`, 8 MB cap), with two fixed queries; names are validated as DNS names so nothing from the UI becomes PromQL. The pod Metrics tab gains 6 hours, 24 hours and 7 days when Prometheus is found.
+- `internal/netpol` and `NetworkService.CanReach`: evaluates NetworkPolicies for both directions (pod and namespace selectors, IP blocks with exceptions, named ports and `endPort`), from a pod, workload or Service to a pod, workload or Service (Service ports followed to pod ports). On the map, **Check traffic** shows the verdict, the deciding policies, and a green or red line between the two.
+- **Replay** on the map steps through recorded changes, highlighting each object.
+- `docs/testdata/network-policies.yaml` and a unit test that checks the answers the testing guide promises.
+- Verified: unit tests (deny-all, named ports, port ranges, AND and OR peers, IP blocks, egress-only; Prometheus discovery, query building, injection refused, answer parsing), type-check and frontend tests.
+- Not verified live: Prometheus in a cluster (testing guide J13).
+
 
 - Go 1.27, Wails v3.1.0, client-go v0.37 (supports Kubernetes 1.34 to 1.37), k3d 5.9, Node 22.
 - Developed on Windows; the Linux build is tested in WSL2 Ubuntu.
@@ -203,3 +266,5 @@ Requested by the maintainer after the first round of testing on Windows. Done an
 - 2026-11-05: milestone 1 foundation implemented and verified.
 - 2026-11-05: milestone 2 core views implemented and verified.
 - 2026-11-06: milestone 10 (maintainer feedback, round 1) implemented and verified.
+- 2026-11-06: published to GitHub; CI green on Ubuntu 24.04 and Windows.
+- 2026-11-07: Linux build, packages and terminal verified in Ubuntu 24.04 (WSL2); milestones 11 to 15 implemented with unit tests; milestone 16 skipped.
