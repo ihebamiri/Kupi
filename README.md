@@ -44,6 +44,7 @@ Kupi puts everything you need to run Kubernetes in one window: every resource ty
 
 <img src="docs/images/review.png" alt="Reviewing a manifest with four objects before applying it" width="49%" align="right" />
 
+- **Build canvas**: drag Deployments, StatefulSets, DaemonSets, Services, Ingresses, config and storage together, connect them, and Kupi writes the selectors, ports, routes, `envFrom`, volumes and per-copy claims, with secure defaults and optional sidecars. The manifest goes through the same review as any other change.
 - **Forms from the cluster's own schema**, kept in sync with a YAML editor. Fields suggest the namespaces, ConfigMaps, Secrets and other objects that exist; CPU, memory and replicas have sliders.
 - **Whole manifests:** paste or open a file with many objects. Kupi checks each one and applies them in a safe order with one confirmation.
 - **Scale, restart, delete, port-forward** from any object.
@@ -156,7 +157,6 @@ Integration tests run against a local k3d cluster: `wails3 task cluster:up`, the
 ## Roadmap
 
 - Argo CD ApplicationSets, and pull requests for GitLab and other Git hosts.
-- A "Build" canvas: drag workloads, Services and config together and get the YAML.
 - A system tray with running port-forwards.
 
 ## Contributing

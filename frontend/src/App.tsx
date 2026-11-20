@@ -5,6 +5,8 @@ import { Sidebar } from "./components/Sidebar";
 import { AppService } from "./lib/api";
 // The map pulls in React Flow and the ELK layout engine; load it only when opened.
 const CanvasPage = lazy(() => import("./pages/CanvasPage").then((m) => ({ default: m.CanvasPage })));
+// The Build canvas uses React Flow too.
+const BuildPage = lazy(() => import("./pages/BuildPage").then((m) => ({ default: m.BuildPage })));
 // The editor pulls in CodeMirror; load it only when opened.
 const EditorPage = lazy(() => import("./pages/EditorPage").then((m) => ({ default: m.EditorPage })));
 // The Helm page uses the YAML editor too; load it only when opened.
@@ -28,7 +30,7 @@ import { SettingsProvider } from "./state/settings";
 // xterm.js and its add-ons load with the terminal.
 const TerminalPage = lazy(() => import("./pages/TerminalPage").then((m) => ({ default: m.TerminalPage })));
 
-const FULL_HEIGHT = new Set(["resources", "apply", "canvas", "secrets", "helm", "terminal"]);
+const FULL_HEIGHT = new Set(["resources", "apply", "canvas", "build", "secrets", "helm", "terminal"]);
 
 function Main() {
   const { route, navigate } = useNav();
@@ -84,6 +86,11 @@ function Main() {
       {route.page === "canvas" && (
         <Suspense fallback={<p className="text-[13px] text-muted">Loading the map…</p>}>
           <CanvasPage />
+        </Suspense>
+      )}
+      {route.page === "build" && (
+        <Suspense fallback={<p className="text-[13px] text-muted">Loading the canvas…</p>}>
+          <BuildPage />
         </Suspense>
       )}
       {route.page === "forwards" && <ForwardsPage />}

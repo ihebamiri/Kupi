@@ -45,6 +45,7 @@ export function CommandPalette() {
         <Command.Group heading="Go to" className={heading}>
           <Command.Item className={item} onSelect={() => run(() => navigate({ page: "clusters" }))}>Clusters</Command.Item>
           <Command.Item className={item} onSelect={() => run(() => navigate({ page: "apply" }))}>Create or edit (form or YAML)</Command.Item>
+          <Command.Item className={item} onSelect={() => run(() => navigate({ page: "build" }))}>Build (drag blocks together, get the YAML)</Command.Item>
           <Command.Item className={item} onSelect={() => run(() => navigate({ page: "audit" }))}>Audit log</Command.Item>
           <Command.Item className={item} onSelect={() => run(() => navigate({ page: "terminal" }))}>Terminal (your shell, kubectl on this cluster)</Command.Item>
           <Command.Item className={item} onSelect={() => run(() => navigate({ page: "settings" }))}>Settings</Command.Item>

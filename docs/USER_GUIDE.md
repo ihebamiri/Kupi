@@ -407,6 +407,28 @@ Press **Laptop mode** on a cluster:
 - **Preview change** opens the review dialog. Kupi uses server-side apply. If another tool manages some of the fields you changed, the review lists the conflicts, and **Take over these fields and preview again** is your explicit choice.
 - Secrets are edited on the Secrets page, not here.
 
+### Build: drag blocks together
+
+**Where:** sidebar → Build. It works without a cluster; you need one only to apply.
+
+1. **Add blocks.** Drag them from the list on the left onto the canvas, or click one to add it: Deployment, StatefulSet, DaemonSet, Job, CronJob, Service, Ingress, ConfigMap, Secret (existing), PersistentVolumeClaim, HorizontalPodAutoscaler. Workloads start with the same secure defaults as the templates.
+2. **Connect them.** Drag from a dot on one block to a dot on another, in either direction. Kupi fills in what the link means:
+   - **Service → Deployment, StatefulSet or DaemonSet:** the Service's selector.
+   - **Ingress → Service:** one route. An Ingress can link to several Services, one path each: the first gets `/`, the next `/<service name>`. Click a route to change its path or pick which of the Service's ports it uses.
+   - **Any workload → ConfigMap or Secret:** every key becomes an environment variable (`envFrom`).
+   - **Any workload → PersistentVolumeClaim:** the claim is mounted at `/data/<claim name>`. Connected to a **StatefulSet**, it gives every copy its own claim instead (`data-db-0`, `data-db-1`…), kept when the StatefulSet is deleted.
+   - **HorizontalPodAutoscaler → Deployment or StatefulSet:** what it scales.
+
+   Links that don't mean anything (an Ingress straight to a Deployment, an autoscaler on a DaemonSet) are refused with a reason. Click any link to see what it does.
+3. **Change settings.** Click a block to set its name, image, copies, command, schedule and so on in the **Block** panel.
+   - **Ports:** a workload lists its container ports as `name=port`, one per line (`http=8080`, `metrics=9090`). A Service lists `port:target`, where the target is a container port's name or number (`80:http`, `9090:metrics`). Kupi checks that the names match.
+   - **Sidecars:** **Add a sidecar** puts another container in every pod, such as a log shipper or a proxy, with the same locked-down security settings and small resource limits. Ports, config and storage links apply to the main container. Like the main container, a sidecar must be able to run as a non-root user.
+   - A **StatefulSet** also gets a headless Service, `<name>-headless`, so each copy has a stable address like `db-0.db-headless`. A **DaemonSet** runs one copy on every node, so it has no copy count.
+4. **Check.** The **Checks** panel lists problems; red ones block applying, amber ones are advice (an image without a fixed version, a LoadBalancer that may be public, shared ReadWriteOnce storage). Click one to jump to its block or link; a route with a problem is drawn in red. **YAML** shows the manifest as you build, with **Copy YAML**.
+5. **Review in editor** opens the manifest in Create or edit. There you can still change anything, then **Preview change** asks the cluster (dry run, permissions, diff) before one confirmation applies it all.
+
+Pick the **Namespace** at the top; **Create it** adds the Namespace too. A **Secret** block only points at a Secret that already exists: create it on the Secrets page, so its values never go into a manifest. Select a block or link and press **Delete** to remove it. The canvas is kept while Kupi is open, and cleared when you close it.
+
 ---
 
 ## 18. Terminal

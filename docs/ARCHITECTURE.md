@@ -279,6 +279,19 @@ Selecting a workload or Service calls `CanvasService.Pods`. It follows ownership
 
 **Can A talk to B? (`netpol`, bridge `network.go`, frontend `MapTools`).** `NetworkService.CanReach` takes two endpoints (a pod, a workload, or a Service as the destination), picks a running pod for each (a Service maps its port to the pod's target port, named ports included), and reads the NetworkPolicies of both namespaces and the namespace labels. `netpol.Evaluate` applies Kubernetes' rules: a pod is isolated for a direction only when some policy selects it with that policy type; traffic is allowed when any selecting policy has a rule whose peers (pod selector, namespace selector, both together, or an IP block with exceptions) and ports (numbers, names, `endPort` ranges) match. It answers for egress at the source and ingress at the destination separately, with the policies that decided each. It reads policies only; it sends no traffic, and the answer assumes the network plugin enforces policies.
 
+### The Build canvas (frontend only: `lib/build.ts`, `BuildPage`)
+
+The Build page is the map in reverse: you place blocks (Deployment, StatefulSet, DaemonSet, Job, CronJob, Service, Ingress, ConfigMap, an existing Secret, PersistentVolumeClaim, HorizontalPodAutoscaler) and connect them, and `lib/build.ts` turns that into objects. It has no bridge service and no write path of its own. Each object goes through `FormService.ToYAML`, and **Review in editor** opens the result as a multi-object manifest in Create or edit, so every apply still goes through the Guard's dry run, diff, confirmation and audit.
+
+- **Links have a fixed meaning.** Service → Deployment, StatefulSet or DaemonSet sets the Service selector to the workload's `app` label. Ingress → Service is one route, a `Prefix` path to one of the Service's ports; the link itself holds the path and port, so one Ingress can route several paths to several Services. Workload → ConfigMap or Secret adds `envFrom`. Workload → PVC adds a volume and a mount at `/data/<claim>`. HPA → Deployment or StatefulSet sets `scaleTargetRef`. `linkFor` orients a link whichever way it was dragged and refuses pairs that mean nothing, with a reason. A Service and an HPA point at one target.
+- **Ports are lists.** A workload's container ports are `name=port` lines; a Service's ports are `port:target` lines, where the target is a container port's name or number. `check` makes sure a named target exists on the selected workload.
+- **Workloads start from the secure templates** in `lib/templates.ts` (non-root, read-only root filesystem, no privilege escalation, capabilities dropped, seccomp, limits). The template's readiness probe is dropped, because it fits only the template's own image. StatefulSets and DaemonSets start from the Deployment template; a DaemonSet has no `replicas`.
+- **Sidecars** are extra containers with the main container's security context and small resource limits. Links (ports, `envFrom`, mounts) apply to the main container.
+- **StatefulSets** get a headless Service, `<name>-headless`, as their `serviceName`, so each copy has a stable DNS name. A PVC connected to a StatefulSet becomes a `volumeClaimTemplates` entry instead of an object, so each copy gets its own claim (`<claim>-<name>-<n>`); such a PVC can't also be connected to another workload.
+- **Secret blocks are references.** They add `secretRef` and produce no object, so Secret values never pass through a manifest. Secrets are created on the Secrets page.
+- **`check`** catches what the canvas can know before the cluster is asked: names, duplicates, two workloads that would share the `app` label, container names, ports and port targets, duplicate Ingress paths, images without a fixed version, schedules, an Ingress or HPA with no target, ConfigMap lines, LoadBalancer exposure, and ReadWriteOnce claims shared by several copies.
+- The draft stays in memory for the app session (never on disk), so leaving the page keeps it.
+
 **Replay (frontend `MapTools`).** The replay bar reads the changes `history` recorded (`HistoryService.Changes`, up to 500, oldest first) and steps through them, highlighting each changed object on the map and saying which field manager made the change.
 
 ### Images (`engine`, bridge `images.go`)
@@ -473,7 +486,6 @@ The design doc's technology table names all of these. Kupi avoids the full Docke
 **Not built yet:**
 
 - Argo CD ApplicationSets aren't listed. Pull requests work with GitHub only.
-- The "Build" drag-and-drop canvas.
 - A system tray.
 - Code signing (the maintainer chose not to buy a certificate).
 

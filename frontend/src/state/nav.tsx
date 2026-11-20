@@ -10,6 +10,7 @@ export type Route =
   | { page: "audit" }
   | { page: "overview" }
   | { page: "canvas" }
+  | { page: "build" }
   | { page: "forwards" }
   | { page: "secrets"; namespace?: string; name?: string }
   | { page: "vault" }

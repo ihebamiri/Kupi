@@ -20,6 +20,7 @@ Scope of the current build: v0.1, the v0.2 Observe canvas and v0.2 features, and
 - [x] 14. GitOps pull requests.
 - [x] 15. Observe, round 2: Prometheus history, "can A talk to B?", replay of changes.
 - [ ] 16. Code signing: skipped.
+- [x] 17. Build canvas: drag workloads, Services, config and storage together and get a manifest. Round 2: several ports, several Ingress paths, sidecars, StatefulSet and DaemonSet blocks.
 
 ## Milestone 1 status
 
@@ -271,6 +272,39 @@ Not verified on Linux yet: the vault (GNOME Keyring, KWallet and the passphrase 
 - Bug found and fixed while testing replay: `kubectl scale` (and autoscalers) write through the scale subresource, whose managedFields entry has no time, so History credited the change to the previous writer ("kubectl apply"). The recorder now credits the scale entry when no timestamped entry moved. kubectl's default manager name (`kubectl`, or `kubectl.exe` on Windows) now reads "kubectl" instead of "kubectl apply --server-side", since many kubectl commands use it.
 - Verified live: with the prometheus chart installed by Kupi, the pod Metrics tab offered 6 hours, 24 hours and 7 days and drew Prometheus' data ("From Prometheus (monitoring/prometheus-server:80)"); the memory value matched a direct query (450560 bytes).
 
+## Milestone 17 status
+
+Done and verified (unit tests, and clicked through in server mode without a cluster):
+
+- Build page (sidebar → Build, command palette): a palette of nine block kinds, added by drag and drop or a click; links drawn between blocks; a side panel with the block's settings, the checks and the live YAML. No new bridge methods and no Go changes: the manifest opens in Create or edit, so the Guard review is the only way it reaches a cluster.
+- `lib/build.ts`, 13 unit tests: link meaning and orientation, refused links with reasons, one target per Service, Ingress and HPA, the generated objects (selector and labels, named target port, `envFrom`, claim volumes, HPA target, apply order), secure template defaults kept and the shared templates not mutated, commands split without a shell, and the checks.
+- Secret blocks are references only: they add `secretRef` and never produce a Secret object.
+- Checked in the browser: adding by click and by dragging from the palette, connecting in both directions, a refused link with its reason, the YAML updating, the checks clearing as links are made, and the draft and its links surviving a visit to another page.
+- The page chunk is 27 KB; React Flow is shared with the map.
+
+- End to end on k3d (`kupi-test`): a Namespace, ConfigMap, Service and Deployment built on the canvas went through Review in editor and the Guard review (applied in the order namespace, config, Service, Deployment; one audit entry). Both pods ran, the Service selected them, `envFrom` delivered the ConfigMap value, the field manager was `kupi`, and an HTTP request through the Service returned 200.
+
+Round 2 (lifting the first version's limits), done and verified:
+
+- Container ports as `name=port` lines and Service ports as `port:target` lines; checks that named targets exist on the selected workload.
+- Ingress routes live on the links: one Ingress can route several paths to several Services, each with its own path and Service port, edited by clicking the link. Duplicate paths and unknown ports are errors, and the link turns red.
+- Sidecar containers on any workload, with the main container's security context and small limits.
+- StatefulSet blocks (headless `<name>-headless` Service as `serviceName`; a connected PVC becomes a per-copy `volumeClaimTemplates` entry and can't be shared) and DaemonSet blocks (no `replicas`). Services select, and HPAs scale, StatefulSets too. Two workloads that would share an `app` label are an error.
+- Clicking a link shows what it does in plain words.
+- 22 unit tests in `lib/build.test.ts` (9 new).
+- End to end on k3d: Ingress with `/` and `/api` to two Services; a Deployment with two ports and a sidecar; a StatefulSet of 2 with per-copy claims, its headless Service and an HPA. Applied as 9 objects through the Guard. Both web pods ran 2 of 2 containers, `data-db-0` and `data-db-1` were bound and mounted, `db-0.db-headless` resolved, the Service's two ports had endpoints, the HPA targeted `StatefulSet/db`, and both paths reached nginx through Traefik.
+
+Not verified:
+
+- Drag and drop inside the native WebView2 and WebKitGTK windows (checked in Chromium only).
+
+Known limits:
+
+- Sidecars have no ports or links of their own; links apply to the main container.
+- One host per Ingress, and no TLS settings on the canvas. Use the editor for those.
+- Sidecars and main containers must run as non-root (the secure default). Images that need root fail to start, which the Incident page shows.
+- The canvas can't load existing cluster objects; it builds new ones.
+
 ## Environment
 
 - Go 1.27, Wails v3.1.0, client-go v0.37 (supports Kubernetes 1.34 to 1.37), k3d 5.9, Node 22.
@@ -287,3 +321,4 @@ Not verified on Linux yet: the vault (GNOME Keyring, KWallet and the passphrase 
 - 2026-11-06: published to GitHub; CI green on Ubuntu 24.04 and Windows.
 - 2026-11-07: Linux build, packages and terminal verified in Ubuntu 24.04 (WSL2); milestones 11 to 15 implemented with unit tests; milestone 16 skipped.
 - 2026-11-07: milestones 11 to 15 checked live (release workflow on GitHub, Artifact Hub, OCI, Prometheus, Trivy, cosign, a private registry); 12 issues found and fixed. Only the GitHub pull request remains, for the maintainer.
+- 2026-11-20: milestone 17 (Build canvas) implemented with unit tests, checked in server mode and applied end to end on k3d. Round 2 (ports, paths, sidecars, StatefulSets, DaemonSets) the same day, also applied on k3d.
