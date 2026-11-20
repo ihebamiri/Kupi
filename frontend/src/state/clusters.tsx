@@ -12,6 +12,8 @@ interface ClustersState {
   namespace: string;
   setNamespace: (ns: string) => void;
   namespaces: string[];
+  /** Reads the namespace list again, for after Kupi creates one. */
+  reloadNamespaces: () => Promise<void>;
   refresh: () => Promise<void>;
   connect: (name: string) => Promise<void>;
   disconnect: (name: string) => Promise<void>;
@@ -113,6 +115,17 @@ export function ClustersProvider({ children }: { children: ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeKey]);
 
+  // After Kupi creates a namespace, the picker should offer it.
+  const connectedName = active?.name ?? "";
+  const reloadNamespaces = useCallback(async () => {
+    if (!connectedName) return;
+    try {
+      setNamespaces((await ResourceService.Namespaces(connectedName)) ?? []);
+    } catch {
+      // Keep the list we have.
+    }
+  }, [connectedName]);
+
   const value: ClustersState = {
     contexts,
     loading,
@@ -122,6 +135,7 @@ export function ClustersProvider({ children }: { children: ReactNode }) {
     namespace,
     setNamespace,
     namespaces,
+    reloadNamespaces,
     refresh,
     connect,
     disconnect,

@@ -409,7 +409,7 @@ Press **Laptop mode** on a cluster:
 
 ### Build: drag blocks together
 
-**Where:** sidebar → Build. It works without a cluster; you need one only to apply.
+**Where:** sidebar → Build, or **Open in Build** on the Map. It works without a cluster; you need one to apply or to open what's running.
 
 1. **Add blocks.** Drag them from the list on the left onto the canvas, or click one to add it: Deployment, StatefulSet, DaemonSet, Job, CronJob, Service, Ingress, ConfigMap, Secret (existing), PersistentVolumeClaim, HorizontalPodAutoscaler. Workloads start with the same secure defaults as the templates.
 2. **Connect them.** Drag from a dot on one block to a dot on another, in either direction. Kupi fills in what the link means:
@@ -425,9 +425,21 @@ Press **Laptop mode** on a cluster:
    - **Sidecars:** **Add a sidecar** puts another container in every pod, such as a log shipper or a proxy, with the same locked-down security settings and small resource limits. Ports, config and storage links apply to the main container. Like the main container, a sidecar must be able to run as a non-root user.
    - A **StatefulSet** also gets a headless Service, `<name>-headless`, so each copy has a stable address like `db-0.db-headless`. A **DaemonSet** runs one copy on every node, so it has no copy count.
 4. **Check.** The **Checks** panel lists problems; red ones block applying, amber ones are advice (an image without a fixed version, a LoadBalancer that may be public, shared ReadWriteOnce storage). Click one to jump to its block or link; a route with a problem is drawn in red. **YAML** shows the manifest as you build, with **Copy YAML**.
-5. **Review in editor** opens the manifest in Create or edit. There you can still change anything, then **Preview change** asks the cluster (dry run, permissions, diff) before one confirmation applies it all.
+5. **Apply.** **Apply** opens the same review as everywhere else in Kupi: a server-side dry run, permissions and a diff, then one confirmation applies it all. **Review in editor** instead opens the manifest in Create or edit, to change anything by hand first.
 
 Pick the **Namespace** at the top; **Create it** adds the Namespace too. A **Secret** block only points at a Secret that already exists: create it on the Secrets page, so its values never go into a manifest. Select a block or link and press **Delete** to remove it. The canvas is kept while Kupi is open, and cleared when you close it.
+
+**Badges, before you apply.**
+
+- **Pod security:** a shield on each workload says which Pod Security Standard its pods meet: green for **restricted** (the strictest, and what Kupi's templates start at), amber for **baseline**, red when it doesn't meet baseline (host network, privileged containers, paths from the node). The **Block** panel lists what holds it back.
+- **Image scan:** with Trivy installed, **Scan with Trivy** in the **Block** panel scans the workload's images (sidecars too), and the block shows the critical and high findings.
+- **Does it fit?** Next to the title, Kupi compares what the new workloads request (CPU and memory, times their copies) with what the cluster's nodes have left after the pods already running. If it doesn't fit, or no single node has room for the biggest pod, Checks warns that pods would wait in Pending.
+
+**Lock down traffic.** Drag from one workload to another to say it **may call** it (click the link to limit it to one of its ports). Switch on **Lock down traffic**, and Kupi adds a NetworkPolicy for each Deployment, StatefulSet and DaemonSet: its pods accept connections only from the workloads you drew, from the Ingress controller when an Ingress routes to it (name the controller's namespace: `kube-system` for k3s's Traefik, `ingress-nginx` for ingress-nginx), from anywhere on the ports of a NodePort or LoadBalancer Service, and, for a StatefulSet, from its own copies. Other pods in the namespace aren't affected, and outgoing traffic isn't limited. Policies only work when the cluster's network plugin enforces them.
+
+**Watch it come alive.** After **Apply**, the canvas switches to live mode: every block shows what the cluster reports, refreshed every few seconds. Workloads show how many copies are ready and a small square for each pod, which turns green as it starts; a failing pod turns its block red with the reason, such as `ErrImagePull`. Claims show when they're bound, Services and Ingresses whether anything is behind them. **Check traffic** in the **Live** panel reads the NetworkPolicies now in the cluster and checks every pair of workloads: with lockdown, only the pairs you drew should be allowed, and each answer is marked as expected or not. **Back to editing** returns to the canvas.
+
+**Open what's running.** **Open in Build** on the Map, or **Open \<namespace\>** on the Build page, puts the namespace's Deployments, StatefulSets, DaemonSets, Jobs, CronJobs, Services, Ingresses, ConfigMaps, Secrets (as references), claims and autoscalers on the canvas, laid out and connected. Objects from the cluster have a small cloud mark and are written back **only if you change them**, and then only the change goes on top of the live object: Kupi's template defaults are never added to something already running, and the review's diff shows just what you changed. You can change settings, add sidecars and blocks, draw new connections and lock down traffic. Connections that already exist can't be removed here, an object's name can't change, and **Take off the canvas** doesn't delete anything from the cluster. Fields Kupi can't show exactly (a ConfigMap value over several lines, a command with spaces inside one argument) are greyed out; use Create or edit for those. Objects that Helm, Argo CD or Flux manage are flagged, since those tools may undo changes made here.
 
 ---
 

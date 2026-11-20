@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from "react";
+import { useCallback, useEffect, useMemo, useState, type DragEvent } from "react";
 import {
   Background,
   ConnectionMode,
@@ -15,28 +15,18 @@ import {
   type NodeChange,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { Check, CircleAlert, Copy, FileCode, Plus, Trash2, TriangleAlert } from "lucide-react";
-import { BLOCK_ICONS, BuildNode, type BuildNodeData } from "../components/BuildNode";
-import { Button, Field, Notice, Segmented, Switch, inputClass } from "../components/ui";
-import { FormService, errorMessage } from "../lib/api";
+import { Activity, Check, CircleAlert, Cloud, Copy, FileCode, Pencil, Play, Trash2, TriangleAlert } from "lucide-react";
+import { BLOCK_ICONS, BuildNode, type BuildNodeData, type ScanBadge } from "../components/BuildNode";
+import { BlockEditor, CapacityMeter, LinkEditor, LivePanel, imagesOf, linkLabel, type Need, type ScanResult } from "../components/BuildPanels";
+import { ReviewDialog } from "../components/ReviewDialog";
+import { Button, Notice, Segmented, Switch, inputClass } from "../components/ui";
+import { CanvasService, FormService, GuardService, ImageService, errorMessage, type ClusterCapacity, type PlanView } from "../lib/api";
 import { copyText } from "../lib/bytes";
-import {
-  BLOCKS,
-  LINK_LABEL,
-  WORKLOADS,
-  blockSpec,
-  buildObjects,
-  check,
-  headlessName,
-  linkFor,
-  newBlock,
-  parseServicePorts,
-  type Block,
-  type BlockKind,
-  type BuildModel,
-  type Link,
-  type Sidecar,
-} from "../lib/build";
+import { BLOCKS, WORKLOADS, blockChanged, buildObjects, buildPlan, check, linkFor, newBlock, rebase, type Block, type BlockKind, type BuildModel, type Issue, type Link } from "../lib/build";
+import { importGraph, importable } from "../lib/buildImport";
+import { useLive } from "../lib/buildLive";
+import type { GraphEdge, GraphNode } from "../lib/canvas";
+import { evaluatePod, podRequests, podSpecOf, type PodSecurity } from "../lib/podsecurity";
 import { useClusters } from "../state/clusters";
 import { useNav } from "../state/nav";
 import { effectiveTheme, useSettings } from "../state/settings";
@@ -49,31 +39,36 @@ interface Draft {
   positions: Record<string, { x: number; y: number }>;
 }
 
-// The draft lives for the app session, so leaving the page and coming back
-// keeps the work. It's never written to disk.
+// The draft and scan results live for the app session, so leaving the page
+// and coming back keeps the work. Nothing is written to disk.
 let saved: Draft | null = null;
+const scanCache = new Map<string, ScanResult>();
 let nextId = 1;
 const id = () => `b${nextId++}`;
 
-export function BuildPage() {
+export function BuildPage({ importNamespace }: { importNamespace?: string }) {
   return (
     <ReactFlowProvider>
-      <Builder />
+      <Builder importNamespace={importNamespace} />
     </ReactFlowProvider>
   );
 }
 
-type Panel = "object" | "checks" | "yaml";
+type Panel = "object" | "checks" | "yaml" | "live";
 
-/** Drag blocks together and get a manifest, reviewed in the editor before anything is applied. */
-function Builder() {
-  const { active, namespace } = useClusters();
+async function toYAML(objects: Record<string, unknown>[]): Promise<string> {
+  return (await Promise.all(objects.map((o) => FormService.ToYAML(JSON.stringify(o))))).join("---\n");
+}
+
+/** Drag blocks together, or open what's running, and apply it through the Guard review. */
+function Builder({ importNamespace }: { importNamespace?: string }) {
+  const { active, namespace, setNamespace, reloadNamespaces } = useClusters();
   const { navigate } = useNav();
   const { settings } = useSettings();
-  const { screenToFlowPosition } = useReactFlow();
-  const wrapper = useRef<HTMLDivElement>(null);
+  const { screenToFlowPosition, fitView } = useReactFlow();
+  const contextName = active?.name ?? "";
 
-  const [model, setModel] = useState<BuildModel>(() => saved?.model ?? { namespace: namespace || "default", createNamespace: false, blocks: [], links: [] });
+  const [model, setModel] = useState<BuildModel>(() => saved?.model ?? { namespace: namespace || "default", createNamespace: false, blocks: [], links: [], ingressNamespace: "kube-system" });
   const [positions, setPositions] = useState<Record<string, { x: number; y: number }>>(() => saved?.positions ?? {});
   // Sizes React Flow measured; edges can't be drawn without them.
   const [sizes, setSizes] = useState<Record<string, { width: number; height: number }>>({});
@@ -84,6 +79,17 @@ function Builder() {
   const [yaml, setYaml] = useState("");
   const [yamlError, setYamlError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [review, setReview] = useState<PlanView | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [done, setDone] = useState<string | null>(null);
+  const [live, setLive] = useState<string | null>(null);
+  const [scans, setScans] = useState<Map<string, ScanResult>>(() => new Map(scanCache));
+  const [scanning, setScanning] = useState(false);
+  const [canScan, setCanScan] = useState(false);
+  const [capacity, setCapacity] = useState<ClusterCapacity | null>(null);
+  const [importing, setImporting] = useState(false);
+  const [skipped, setSkipped] = useState<string[]>([]);
 
   useEffect(() => {
     saved = { model, positions };
@@ -95,24 +101,101 @@ function Builder() {
     return () => window.clearTimeout(t);
   }, [refusal]);
 
+  useEffect(() => {
+    void ImageService.ScanTools()
+      .then((t) => setCanScan(!!t?.trivy))
+      .catch(() => setCanScan(false));
+  }, []);
+
+  const loadCapacity = useCallback(() => {
+    if (!contextName) return setCapacity(null);
+    CanvasService.Capacity(contextName)
+      .then((c) => setCapacity(c ?? null))
+      .catch(() => setCapacity(null));
+  }, [contextName]);
+  useEffect(loadCapacity, [loadCapacity]);
+
+  const { states: liveStates, error: liveError } = useLive(contextName, live, model.blocks);
+
+  // --- What the canvas means -------------------------------------------------
+
   const issues = useMemo(() => check(model), [model]);
-  const errors = issues.filter((i) => i.level === "error");
+  const plan = useMemo(() => buildPlan(model), [model]);
+  const objects = plan.objects;
+
+  const security = useMemo(() => {
+    const m = new Map<string, PodSecurity>();
+    for (const b of model.blocks) {
+      if (!WORKLOADS.has(b.kind)) continue;
+      const w = plan.byBlock.get(b.id)?.find((o) => o.kind === b.kind);
+      const spec = w && podSpecOf(w);
+      if (spec) m.set(b.id, evaluatePod(spec));
+    }
+    return m;
+  }, [model.blocks, plan]);
+
+  const scanBadges = useMemo(() => {
+    const m = new Map<string, ScanBadge>();
+    for (const b of model.blocks) {
+      const reports = imagesOf(b)
+        .map((i) => scans.get(i))
+        .filter((r): r is Exclude<ScanResult, { error: string }> => !!r && !("error" in r));
+      if (reports.length) m.set(b.id, { critical: reports.reduce((s, r) => s + (r.counts?.CRITICAL ?? 0), 0), high: reports.reduce((s, r) => s + (r.counts?.HIGH ?? 0), 0) });
+    }
+    return m;
+  }, [model.blocks, scans]);
+
+  // What new workloads ask the scheduler for. Opened ones already run, so they're counted in the cluster's numbers.
+  const need = useMemo<Need>(() => {
+    const n: Need = { cpu: 0, mem: 0, podCpu: 0, podMem: 0 };
+    for (const b of model.blocks) {
+      if (b.source || !WORKLOADS.has(b.kind)) continue;
+      const w = plan.byBlock.get(b.id)?.find((o) => o.kind === b.kind);
+      const spec = w && podSpecOf(w);
+      if (!spec) continue;
+      const r = podRequests(spec);
+      const copies = b.kind === "DaemonSet" ? (capacity?.nodes ?? 1) : b.kind === "Deployment" || b.kind === "StatefulSet" ? Math.max(0, Number(b.fields.replicas) || 0) : 1;
+      n.cpu += r.cpu * copies;
+      n.mem += r.mem * copies;
+      n.podCpu = Math.max(n.podCpu, r.cpu);
+      n.podMem = Math.max(n.podMem, r.mem);
+    }
+    return n;
+  }, [model.blocks, plan, capacity]);
+
+  const allIssues = useMemo<Issue[]>(() => {
+    const extra: Issue[] = [];
+    if (capacity && capacity.nodes > 0) {
+      const freeCpu = capacity.cpuAllocatable - capacity.cpuRequested;
+      const freeMem = capacity.memAllocatable - capacity.memRequested;
+      if (need.cpu > freeCpu || need.mem > freeMem)
+        extra.push({ level: "warn", text: "The new workloads request more CPU or memory than the cluster has free. Some pods will wait in Pending until room frees up or a node is added." });
+      else if (need.podCpu > capacity.largestFreeCpu || need.podMem > capacity.largestFreeMem)
+        extra.push({ level: "warn", text: "There's room in total, but no single node has enough free for the biggest new pod, so it would wait in Pending." });
+    }
+    for (const [bid, s] of security)
+      if (s.level === "privileged") {
+        const b = model.blocks.find((x) => x.id === bid);
+        if (b && blockChanged(b, model.links)) extra.push({ level: "warn", block: bid, text: `${b.kind} ${b.name} doesn't meet the baseline Pod Security Standard: ${s.problems[0]}.` });
+      }
+    return [...issues, ...extra];
+  }, [issues, capacity, need, security, model.blocks, model.links]);
+  const errors = allIssues.filter((i) => i.level === "error");
   const problemOf = useMemo(() => {
     const m = new Map<string, "error" | "warn">();
-    for (const i of issues) if (i.block && m.get(i.block) !== "error") m.set(i.block, i.level);
+    for (const i of allIssues) if (i.block && m.get(i.block) !== "error") m.set(i.block, i.level);
     return m;
-  }, [issues]);
+  }, [allIssues]);
   const badLinks = useMemo(() => new Set(errors.flatMap((i) => (i.link ? [i.link] : []))), [errors]);
 
   // The manifest, converted to YAML in Go like the editor does.
-  const objects = useMemo(() => buildObjects(model), [model]);
   useEffect(() => {
     let cancelled = false;
     const t = window.setTimeout(() => {
-      Promise.all(objects.map((o) => FormService.ToYAML(JSON.stringify(o))))
-        .then((parts) => {
+      toYAML(objects)
+        .then((y) => {
           if (cancelled) return;
-          setYaml(parts.join("---\n"));
+          setYaml(y);
           setYamlError(null);
         })
         .catch((err) => !cancelled && setYamlError(errorMessage(err)));
@@ -123,14 +206,20 @@ function Builder() {
     };
   }, [objects]);
 
+  // --- Editing -----------------------------------------------------------------
+
   const addBlock = useCallback((kind: BlockKind, at?: { x: number; y: number }) => {
     const bid = id();
     setModel((m) => ({ ...m, blocks: [...m.blocks, newBlock(kind, bid, m.blocks)] }));
     setPositions((p) => {
-      const n = Object.keys(p).length;
-      return { ...p, [bid]: at ?? { x: 40 + (n % 3) * 270, y: 40 + Math.floor(n / 3) * 120 } };
+      if (at) return { ...p, [bid]: at };
+      // Below everything already on the canvas, so a new block never covers one.
+      const ys = Object.values(p).map((q) => q.y);
+      const left = Object.values(p).length ? Math.min(...Object.values(p).map((q) => q.x)) : 40;
+      return { ...p, [bid]: { x: left, y: ys.length ? Math.max(...ys) + 120 : 40 } };
     });
     setSelected(bid);
+    setSelectedLink(null);
     setPanel("object");
   }, []);
 
@@ -144,33 +233,64 @@ function Builder() {
   const updateBlock = (bid: string, patch: Partial<Block>) =>
     setModel((m) => ({ ...m, blocks: m.blocks.map((b) => (b.id === bid ? { ...b, ...patch, fields: { ...b.fields, ...(patch.fields ?? {}) } } : b)) }));
 
-  const updateLink = (lid: string, fields: Record<string, string>) =>
-    setModel((m) => ({ ...m, links: m.links.map((l) => (l.id === lid ? { ...l, fields: { ...l.fields, ...fields } } : l)) }));
+  const resetBlock = (bid: string) =>
+    setModel((m) => ({
+      ...m,
+      blocks: m.blocks.map((b) => (b.id === bid && b.origFields ? { ...b, fields: { ...b.origFields }, sidecars: b.origSidecars?.map((s) => ({ ...s })) } : b)),
+      links: m.links.map((l) => (l.from === bid && l.imported && l.origFields ? { ...l, fields: { ...l.origFields } } : l)),
+    }));
+
+  const updateLink = (lid: string, fields: Record<string, string>) => setModel((m) => ({ ...m, links: m.links.map((l) => (l.id === lid ? { ...l, fields: { ...l.fields, ...fields } } : l)) }));
 
   const removeLink = (lid: string) => {
-    setModel((m) => ({ ...m, links: m.links.filter((l) => l.id !== lid) }));
+    setModel((m) => ({ ...m, links: m.links.filter((l) => l.id !== lid || l.imported) }));
     setSelectedLink(null);
   };
 
   const selectBlock = (bid: string | null) => {
     setSelected(bid);
     setSelectedLink(null);
-    if (bid) setPanel("object");
+    if (bid && !live) setPanel("object");
   };
 
   const selectLink = (lid: string) => {
     setSelectedLink(lid);
     setSelected(null);
-    setPanel("object");
+    if (!live) setPanel("object");
   };
+
+  const scan = async (images: string[]) => {
+    setScanning(true);
+    for (const img of images) {
+      try {
+        const r = await ImageService.Scan(img);
+        if (r) scanCache.set(img, r);
+      } catch (err) {
+        scanCache.set(img, { error: errorMessage(err) });
+      }
+      setScans(new Map(scanCache));
+    }
+    setScanning(false);
+  };
+
+  // --- Canvas ------------------------------------------------------------------
 
   const nodes: Node[] = useMemo(
     () =>
       model.blocks.map((b) => {
-        const data: BuildNodeData = { block: b, problem: problemOf.get(b.id) ?? null };
+        const data: BuildNodeData = {
+          block: b,
+          problem: problemOf.get(b.id) ?? null,
+          security: security.get(b.id),
+          scan: scanBadges.get(b.id) ?? null,
+          inCluster: !!b.source,
+          changed: !!b.source && blockChanged(b, model.links),
+          live: live ? (liveStates.get(b.id) ?? null) : null,
+          liveMode: !!live,
+        };
         return { id: b.id, type: "block", position: positions[b.id] ?? { x: 0, y: 0 }, data, selected: b.id === selected, measured: sizes[b.id] };
       }),
-    [model.blocks, positions, problemOf, selected, sizes],
+    [model.blocks, model.links, positions, problemOf, security, scanBadges, live, liveStates, selected, sizes],
   );
 
   const edges: Edge[] = useMemo(
@@ -178,27 +298,31 @@ function Builder() {
       model.links.map((l) => {
         // Leave from the side that faces the other block, wherever they've been moved.
         const leftToRight = (positions[l.from]?.x ?? 0) <= (positions[l.to]?.x ?? 0);
+        const traffic = l.kind === "routes" || l.kind === "selects";
+        const stroke = badLinks.has(l.id) ? "var(--kupi-bad)" : l.kind === "talks" ? "var(--kupi-good)" : traffic ? "var(--kupi-accent)" : "var(--kupi-muted)";
         return {
-        id: l.id,
-        source: l.from,
-        target: l.to,
-        sourceHandle: leftToRight ? "r" : "l",
-        targetHandle: leftToRight ? "l" : "r",
-        // A route shows its path, so several routes from one Ingress can be told apart.
-        label: l.kind === "routes" ? `${(l.fields?.path ?? "/").trim() || "/"}${l.fields?.port ? ` :${l.fields.port}` : ""}` : LINK_LABEL[l.kind],
-        labelStyle: { fill: badLinks.has(l.id) ? "var(--kupi-bad)" : "var(--kupi-muted)", fontSize: l.kind === "routes" ? 11 : 10, fontFamily: l.kind === "routes" ? "var(--font-mono, monospace)" : undefined },
-        labelBgStyle: { fill: "var(--kupi-bg)" },
-        markerEnd: { type: MarkerType.ArrowClosed, color: "var(--kupi-muted)" },
-        selected: l.id === selectedLink,
-        style: {
-          stroke: badLinks.has(l.id) ? "var(--kupi-bad)" : l.kind === "routes" || l.kind === "selects" ? "var(--kupi-accent)" : "var(--kupi-muted)",
-          strokeDasharray: l.kind === "env" || l.kind === "mounts" ? "5 4" : undefined,
-          strokeWidth: l.id === selectedLink ? 3 : 1.6,
-        },
-        animated: l.kind === "routes" || l.kind === "selects",
+          id: l.id,
+          source: l.from,
+          target: l.to,
+          sourceHandle: leftToRight ? "r" : "l",
+          targetHandle: leftToRight ? "l" : "r",
+          // A route shows its path, so several routes from one Ingress can be told apart.
+          label: l.kind === "routes" ? `${(l.fields?.path ?? "/").trim() || "/"}${l.fields?.port ? ` :${l.fields.port}` : ""}` : l.kind === "talks" && l.fields?.port ? `may call :${l.fields.port}` : linkLabel(l),
+          labelStyle: { fill: badLinks.has(l.id) ? "var(--kupi-bad)" : "var(--kupi-muted)", fontSize: l.kind === "routes" ? 11 : 10, fontFamily: l.kind === "routes" ? "var(--font-mono, monospace)" : undefined },
+          labelBgStyle: { fill: "var(--kupi-bg)" },
+          markerEnd: { type: MarkerType.ArrowClosed, color: "var(--kupi-muted)" },
+          selected: l.id === selectedLink,
+          deletable: !l.imported && !live,
+          style: {
+            stroke,
+            strokeDasharray: l.kind === "env" || l.kind === "mounts" ? "5 4" : l.kind === "talks" ? "8 4" : undefined,
+            strokeWidth: l.id === selectedLink ? 3 : 1.6,
+            opacity: l.imported ? 0.7 : 1,
+          },
+          animated: traffic || l.kind === "talks",
         } as Edge;
       }),
-    [model.links, positions, badLinks, selectedLink],
+    [model.links, positions, badLinks, selectedLink, live],
   );
 
   const onNodesChange = useCallback(
@@ -220,60 +344,135 @@ function Builder() {
 
   const onEdgesChange = useCallback((changes: EdgeChange[]) => {
     const removed = new Set(changes.filter((c) => c.type === "remove").map((c) => c.id));
-    if (removed.size) {
-      setModel((m) => ({ ...m, links: m.links.filter((l) => !removed.has(l.id)) }));
-      setSelectedLink((s) => (s && removed.has(s) ? null : s));
-    }
+    if (!removed.size) return;
+    // Connections that exist in the cluster stay: removing them takes an edit of the object.
+    setModel((m) => ({ ...m, links: m.links.filter((l) => !removed.has(l.id) || l.imported) }));
+    setSelectedLink((s) => (s && removed.has(s) ? null : s));
   }, []);
 
-  const onConnect = useCallback(
-    (c: Connection) => {
-      const a = model.blocks.find((b) => b.id === c.source);
-      const b = model.blocks.find((x) => x.id === c.target);
-      if (!a || !b) return;
-      const r = linkFor(a, b, model.links);
-      if (!r.ok) {
-        setRefusal(r.reason);
-        return;
-      }
-      setRefusal(null);
-      const link: Link = { id: `l${nextId++}`, ...r.link };
-      setModel((m) => ({ ...m, links: [...m.links, link] }));
-      // A route has settings of its own: show them right away.
-      if (link.kind === "routes") selectLink(link.id);
-    },
-    [model.blocks, model.links],
-  );
+  const onConnect = (c: Connection) => {
+    const a = model.blocks.find((b) => b.id === c.source);
+    const b = model.blocks.find((x) => x.id === c.target);
+    if (!a || !b || live) return;
+    const r = linkFor(a, b, model.links);
+    if (!r.ok) {
+      setRefusal(r.reason);
+      return;
+    }
+    setRefusal(null);
+    const link: Link = { id: `l${nextId++}`, ...r.link };
+    setModel((m) => ({ ...m, links: [...m.links, link] }));
+    // Routes and calls have settings of their own: show them right away.
+    if (link.kind === "routes" || link.kind === "talks") selectLink(link.id);
+  };
 
   const onDrop = (e: DragEvent) => {
     const kind = e.dataTransfer.getData(DRAG_TYPE) as BlockKind;
-    if (!BLOCKS.some((b) => b.kind === kind)) return;
+    if (!BLOCKS.some((b) => b.kind === kind) || live) return;
     e.preventDefault();
     const p = screenToFlowPosition({ x: e.clientX, y: e.clientY });
     addBlock(kind, { x: p.x - 110, y: p.y - 32 });
   };
 
   const clear = () => {
-    if (model.blocks.length && !window.confirm("Remove every block from the canvas?")) return;
+    if (model.blocks.length && !window.confirm("Remove every block from the canvas? Nothing in the cluster is deleted.")) return;
     setModel((m) => ({ ...m, blocks: [], links: [] }));
     setPositions({});
     setSelected(null);
     setSelectedLink(null);
+    setSkipped([]);
+    setDone(null);
   };
 
-  const openInEditor = async () => {
-    // Converted again here so the editor gets exactly what the checks saw.
-    const parts = await Promise.all(buildObjects(model).map((o) => FormService.ToYAML(JSON.stringify(o))));
-    navigate({ page: "apply", manifest: parts.join("---\n") });
+  // --- Opening what's running --------------------------------------------------
+
+  const openNamespace = useCallback(
+    async (ns: string) => {
+      if (!contextName || !ns) return;
+      if (saved?.model.blocks.length && !window.confirm(`Replace the canvas with what's running in ${ns}?`)) return;
+      setImporting(true);
+      setError(null);
+      setDone(null);
+      try {
+        const g = await CanvasService.Graph(contextName, ns);
+        const gnodes = (g?.nodes ?? []) as GraphNode[];
+        const gedges = (g?.edges ?? []) as GraphEdge[];
+        const objectsById = new Map<string, Record<string, unknown>>();
+        await Promise.all(
+          gnodes
+            .filter((n) => importable(n.kind) && n.kind !== "Secret" && !(n.flags ?? []).includes("missing"))
+            .map(async (n) => {
+              try {
+                const y = await FormService.Object(contextName, { group: n.group, version: n.version, resource: n.resource, namespace: n.namespace, name: n.name });
+                const r = await FormService.FromYAML(y);
+                if (!r.error && r.json) objectsById.set(n.id, JSON.parse(r.json));
+              } catch {
+                // Listed as "couldn't be read" below.
+              }
+            }),
+        );
+        const res = importGraph(gnodes, gedges, objectsById, id);
+        const keep = gnodes.filter((n) => res.idOf.has(n.id));
+        const { layout } = await import("../lib/canvasLayout");
+        const laid = await layout(
+          keep,
+          gedges.filter((e) => res.idOf.has(e.source) && res.idOf.has(e.target)),
+          false,
+        );
+        setModel((m) => ({ namespace: ns, createNamespace: false, blocks: res.blocks, links: res.links, lockdown: false, ingressNamespace: m.ingressNamespace ?? "kube-system" }));
+        setPositions(Object.fromEntries(laid.map((p) => [res.idOf.get(p.id)!, { x: p.x, y: p.y }])));
+        setSizes({});
+        setSelected(null);
+        setSelectedLink(null);
+        setLive(null);
+        setSkipped(res.skipped);
+        setPanel("checks");
+        window.setTimeout(() => void fitView({ padding: 0.15, duration: 300 }), 120);
+      } catch (err) {
+        setError(errorMessage(err));
+      } finally {
+        setImporting(false);
+      }
+    },
+    [contextName, fitView],
+  );
+
+  useEffect(() => {
+    if (importNamespace) void openNamespace(importNamespace);
+    // Only when the page is opened for a namespace.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [importNamespace]);
+
+  // --- Applying ----------------------------------------------------------------
+
+  const prepare = async (force: boolean) => {
+    if (!active) return;
+    setBusy(true);
+    setError(null);
+    setDone(null);
+    try {
+      if (review) void GuardService.Cancel(review.id);
+      setReview(await GuardService.PrepareApply(active.name, await toYAML(buildObjects(model)), force));
+    } catch (err) {
+      setReview(null);
+      setError(errorMessage(err));
+    } finally {
+      setBusy(false);
+    }
   };
+
+  const openInEditor = async () => navigate({ page: "apply", manifest: await toYAML(buildObjects(model)) });
 
   const sel = model.blocks.find((b) => b.id === selected);
   const selLink = model.links.find((l) => l.id === selectedLink);
   const canApply = errors.length === 0 && objects.length > 0;
+  const hasImported = model.blocks.some((b) => b.source);
+  const routed = model.links.some((l) => l.kind === "routes");
+  const applyTitle = !active ? "Connect to a cluster to apply" : errors.length ? "Fix the problems under Checks first" : objects.length === 0 ? "Nothing has changed yet" : undefined;
 
   return (
     <div className="flex h-full min-h-0 gap-4">
-      <aside aria-label="Blocks" className="flex w-52 shrink-0 flex-col gap-1 overflow-y-auto">
+      <aside aria-label="Blocks" className={`flex w-52 shrink-0 flex-col gap-1 overflow-y-auto ${live ? "pointer-events-none opacity-40" : ""}`}>
         <h2 className="px-1 pb-1 text-[11px] font-semibold tracking-wide text-muted uppercase">Blocks</h2>
         {BLOCKS.map((b) => {
           const Icon = BLOCK_ICONS[b.kind];
@@ -297,53 +496,108 @@ function Builder() {
             </button>
           );
         })}
-        <p className="mt-2 px-1 text-[11.5px] leading-5 text-muted">Drag blocks onto the canvas, then drag from a dot on one block to another to connect them. Click a link to see what it does (and an Ingress route's path). Select a link or block and press Delete to remove it.</p>
+        <p className="mt-2 px-1 text-[11.5px] leading-5 text-muted">
+          Drag blocks onto the canvas, then drag from a dot on one block to another to connect them. Drag from one workload to another to say it may call it. Click a link to see what it does. Select a link or block and press Delete to remove it.
+        </p>
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <div className="mb-3 flex flex-wrap items-center gap-2">
+        <div className="mb-2 flex flex-wrap items-center gap-2">
           <h1 className="text-lg font-semibold">Build</h1>
           <span className="text-[12px] text-muted">
-            {model.blocks.length} {model.blocks.length === 1 ? "block" : "blocks"} · {objects.length} {objects.length === 1 ? "object" : "objects"}
+            {model.blocks.length} {model.blocks.length === 1 ? "block" : "blocks"} · {objects.length} {objects.length === 1 ? "object" : "objects"} to apply
           </span>
+          {!live && <CapacityMeter need={need} cap={capacity} />}
           <div className="ml-auto flex items-center gap-2">
-            <label className="flex items-center gap-1.5 text-[12px] text-muted">
+            {live ? (
+              <Button icon={<Pencil className="size-4" />} onClick={() => setLive(null)}>
+                Back to editing
+              </Button>
+            ) : (
+              <>
+                <Button
+                  variant="ghost"
+                  busy={importing}
+                  icon={<Cloud className="size-4" />}
+                  disabled={!active || !namespace}
+                  title={!active ? "Connect to a cluster first" : !namespace ? "Pick a namespace in the top bar" : `Put what's running in ${namespace} on the canvas`}
+                  onClick={() => void openNamespace(namespace)}
+                >
+                  Open {namespace || "namespace"}
+                </Button>
+                <Button variant="ghost" icon={<Trash2 className="size-4" />} onClick={clear} disabled={model.blocks.length === 0}>
+                  Clear
+                </Button>
+                <Button icon={<FileCode className="size-4" />} disabled={!canApply || !active} title={applyTitle ?? "Open the manifest in Create or edit"} onClick={() => void openInEditor()}>
+                  Review in editor
+                </Button>
+                <Button variant="primary" busy={busy} icon={<Play className="size-4" />} disabled={!canApply || !active} title={applyTitle ?? "Preview the change, apply it, and watch it come alive"} onClick={() => void prepare(false)}>
+                  Apply
+                </Button>
+              </>
+            )}
+          </div>
+        </div>
+        {!live && (
+          <div className="mb-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-[12px] text-muted">
+            <label className="flex items-center gap-1.5">
               Namespace
               <input
                 aria-label="Namespace"
                 value={model.namespace}
+                disabled={hasImported}
+                title={hasImported ? "Objects opened from the cluster stay in their namespace" : undefined}
                 onChange={(e) => setModel((m) => ({ ...m, namespace: e.target.value }))}
-                className={`${inputClass} w-36 font-mono`}
+                className={`${inputClass} h-7 w-36 font-mono`}
                 spellCheck={false}
               />
             </label>
-            <label className="flex items-center gap-1.5 text-[12px] text-muted">
-              <Switch label="Create the namespace too" checked={model.createNamespace} onChange={(v) => setModel((m) => ({ ...m, createNamespace: v }))} />
-              Create it
+            {!hasImported && (
+              <label className="flex items-center gap-1.5">
+                <Switch label="Create the namespace too" checked={model.createNamespace} onChange={(v) => setModel((m) => ({ ...m, createNamespace: v }))} />
+                Create it
+              </label>
+            )}
+            <label className="flex items-center gap-1.5" title="Add NetworkPolicies so only the connections you drew get in">
+              <Switch label="Lock down traffic" checked={!!model.lockdown} onChange={(v) => setModel((m) => ({ ...m, lockdown: v }))} />
+              Lock down traffic
             </label>
-            <Button variant="ghost" icon={<Trash2 className="size-4" />} onClick={clear} disabled={model.blocks.length === 0}>
-              Clear
-            </Button>
-            <Button
-              variant="primary"
-              icon={<FileCode className="size-4" />}
-              disabled={!canApply || !active}
-              title={!active ? "Connect to a cluster to review and apply" : errors.length ? "Fix the problems under Checks first" : "Open the manifest in the editor, then preview the change"}
-              onClick={() => void openInEditor()}
-            >
-              Review in editor
-            </Button>
-          </div>
-        </div>
-        {refusal && (
-          <div className="mb-2">
-            <Notice tone="warn">{refusal}</Notice>
+            {model.lockdown && routed && (
+              <label className="flex items-center gap-1.5" title="Lockdown lets the Ingress controller's pods in from this namespace">
+                Ingress controller in
+                <input
+                  aria-label="Ingress controller namespace"
+                  value={model.ingressNamespace ?? ""}
+                  onChange={(e) => setModel((m) => ({ ...m, ingressNamespace: e.target.value }))}
+                  className={`${inputClass} h-7 w-32 font-mono`}
+                  spellCheck={false}
+                />
+              </label>
+            )}
           </div>
         )}
-        <div ref={wrapper} className="relative min-h-0 flex-1 overflow-hidden rounded-lg border border-line bg-bg" onDragOver={(e) => e.preventDefault()} onDrop={onDrop}>
+        <div className="flex flex-col gap-2">
+          {live && (
+            <Notice tone="info" icon={<Activity className="size-4 text-accent" />}>
+              Live: watching {live}. Blocks show what the cluster reports, and each square is a pod.
+            </Notice>
+          )}
+          {done && !live && <Notice tone="good">{done}</Notice>}
+          {error && <Notice tone="bad">{error}</Notice>}
+          {refusal && <Notice tone="warn">{refusal}</Notice>}
+          {skipped.length > 0 && !live && (
+            <Notice>
+              Left off the canvas: {skipped.slice(0, 4).join("; ")}
+              {skipped.length > 4 ? ` and ${skipped.length - 4} more` : ""}.
+            </Notice>
+          )}
+        </div>
+        <div className="relative mt-2 min-h-0 flex-1 overflow-hidden rounded-lg border border-line bg-bg" onDragOver={(e) => e.preventDefault()} onDrop={onDrop}>
           {model.blocks.length === 0 && (
             <div className="pointer-events-none absolute inset-0 z-10 grid place-items-center">
-              <p className="max-w-sm text-center text-[13px] text-muted">Drag a Deployment here to start. Add a Service and connect them, and Kupi fills in the selector, labels and ports.</p>
+              <p className="max-w-sm text-center text-[13px] text-muted">
+                Drag a Deployment here to start, or open a namespace that's already running. Connect blocks and Kupi fills in the selectors, ports and routes.
+              </p>
             </div>
           )}
           <ReactFlow
@@ -353,8 +607,9 @@ function Builder() {
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
             onConnect={onConnect}
+            nodesConnectable={!live}
             connectionMode={ConnectionMode.Loose}
-            deleteKeyCode={["Delete", "Backspace"]}
+            deleteKeyCode={live ? null : ["Delete", "Backspace"]}
             onNodeClick={(_, n) => selectBlock(n.id)}
             onEdgeClick={(_, e) => selectLink(e.id)}
             onPaneClick={() => selectBlock(null)}
@@ -371,27 +626,47 @@ function Builder() {
       <aside aria-label="Details" className="flex w-[360px] shrink-0 flex-col gap-3 overflow-hidden">
         <Segmented<Panel>
           label="Panel"
-          value={panel}
+          value={panel === "live" && !live ? "checks" : panel}
           onChange={setPanel}
-          options={[
-            { value: "object", label: selLink ? "Link" : "Block" },
-            { value: "checks", label: errors.length ? `Checks (${errors.length})` : "Checks" },
-            { value: "yaml", label: "YAML" },
-          ]}
+          options={
+            live
+              ? [
+                  { value: "live", label: "Live" },
+                  { value: "yaml", label: "YAML" },
+                ]
+              : [
+                  { value: "object", label: selLink ? "Link" : "Block" },
+                  { value: "checks", label: errors.length ? `Checks (${errors.length})` : "Checks" },
+                  { value: "yaml", label: "YAML" },
+                ]
+          }
         />
         <div className="min-h-0 flex-1 overflow-y-auto pr-1">
-          {panel === "object" &&
+          {live && panel === "live" && <LivePanel model={model} states={liveStates} contextName={contextName} namespace={live} error={liveError} />}
+          {!live && panel === "object" &&
             (sel ? (
-              <BlockEditor block={sel} model={model} onChange={(p) => updateBlock(sel.id, p)} onRemove={() => removeBlocks([sel.id])} onSelectLink={selectLink} />
+              <BlockEditor
+                block={sel}
+                model={model}
+                security={security.get(sel.id)}
+                scans={scans}
+                scanning={scanning}
+                canScan={canScan}
+                onScan={(images) => void scan(images)}
+                onChange={(p) => updateBlock(sel.id, p)}
+                onRemove={() => removeBlocks([sel.id])}
+                onReset={() => resetBlock(sel.id)}
+                onSelectLink={selectLink}
+              />
             ) : selLink ? (
               <LinkEditor link={selLink} model={model} onChange={(f) => updateLink(selLink.id, f)} onRemove={() => removeLink(selLink.id)} />
             ) : (
               <p className="text-[13px] text-muted">Select a block or a link to change its settings.</p>
             ))}
-          {panel === "checks" && (
+          {!live && panel === "checks" && (
             <div className="flex flex-col gap-2">
-              {issues.length === 0 && <Notice tone="good">No problems found. Review in editor to preview the change against the cluster.</Notice>}
-              {issues.map((i, n) => (
+              {allIssues.length === 0 && <Notice tone="good">No problems found. Apply previews the change against the cluster first: a server-side dry run, permissions and a diff.</Notice>}
+              {allIssues.map((i, n) => (
                 <button
                   key={n}
                   className="text-left"
@@ -406,7 +681,7 @@ function Builder() {
                   </Notice>
                 </button>
               ))}
-              <p className="text-[12px] text-muted">These checks only look at the canvas. The editor's preview then asks the cluster: a server-side dry run, permissions and a diff.</p>
+              <p className="text-[12px] text-muted">These checks only look at the canvas. Apply then asks the cluster: a server-side dry run, permissions and a diff, before anything changes.</p>
             </div>
           )}
           {panel === "yaml" && (
@@ -424,197 +699,32 @@ function Builder() {
                 >
                   {copied ? "Copied" : "Copy YAML"}
                 </Button>
-                <span className="text-[12px] text-muted">Updates as you build.</span>
+                <span className="text-[12px] text-muted">{hasImported ? "Only what changed." : "Updates as you build."}</span>
               </div>
               {yamlError && <Notice tone="bad">{yamlError}</Notice>}
-              <pre className="overflow-x-auto rounded-lg border border-line bg-panel p-3 font-mono text-[11.5px] leading-[1.5]">{yaml || "# Nothing yet"}</pre>
+              <pre className="overflow-x-auto rounded-lg border border-line bg-panel p-3 font-mono text-[11.5px] leading-[1.5]">{yaml || (hasImported ? "# Nothing changed yet" : "# Nothing yet")}</pre>
             </div>
           )}
         </div>
       </aside>
-    </div>
-  );
-}
 
-function BlockEditor({
-  block,
-  model,
-  onChange,
-  onRemove,
-  onSelectLink,
-}: {
-  block: Block;
-  model: BuildModel;
-  onChange: (p: Partial<Block>) => void;
-  onRemove: () => void;
-  onSelectLink: (id: string) => void;
-}) {
-  const spec = blockSpec(block.kind);
-  const byId = new Map(model.blocks.map((b) => [b.id, b]));
-  const out = model.links.filter((l) => l.from === block.id);
-  const into = model.links.filter((l) => l.to === block.id);
-  const sidecars = block.sidecars ?? [];
-  const setSidecar = (i: number, patch: Partial<Sidecar>) => onChange({ sidecars: sidecars.map((s, n) => (n === i ? { ...s, ...patch } : s)) });
-  return (
-    <div className="flex flex-col gap-3">
-      <div className="flex items-center gap-2">
-        <span className="rounded bg-panel-2 px-1.5 py-0.5 font-mono text-[12px]">{block.kind}</span>
-        <span className="text-[12px] text-muted">{spec.description}</span>
-      </div>
-      <Field label="Name">
-        <input className={`${inputClass} font-mono`} value={block.name} spellCheck={false} onChange={(e) => onChange({ name: e.target.value })} />
-      </Field>
-      {spec.fields.map((f) => (
-        <Field key={f.key} label={f.label} hint={f.hint}>
-          {f.options ? (
-            <select className={inputClass} value={block.fields[f.key] ?? ""} onChange={(e) => onChange({ fields: { [f.key]: e.target.value } })}>
-              {f.options.map((o) => (
-                <option key={o}>{o}</option>
-              ))}
-            </select>
-          ) : f.multiline ? (
-            <textarea
-              className={`${inputClass} h-20 py-1.5 font-mono`}
-              value={block.fields[f.key] ?? ""}
-              spellCheck={false}
-              onChange={(e) => onChange({ fields: { [f.key]: e.target.value } })}
-            />
-          ) : (
-            <input className={`${inputClass} font-mono`} value={block.fields[f.key] ?? ""} placeholder={f.placeholder} spellCheck={false} onChange={(e) => onChange({ fields: { [f.key]: e.target.value } })} />
-          )}
-        </Field>
-      ))}
-      {block.kind === "StatefulSet" && (
-        <Notice>
-          Kupi adds a headless Service, <span className="font-mono text-[12px]">{headlessName(block.name)}</span>, so each copy gets a stable address like{" "}
-          <span className="font-mono text-[12px]">
-            {block.name.trim()}-0.{headlessName(block.name)}
-          </span>
-          . A PersistentVolumeClaim connected here gives every copy its own claim.
-        </Notice>
-      )}
-      {block.kind === "Ingress" && out.length > 0 && <p className="text-[12px] text-muted">Each link to a Service is one route. Click a link below, or on the canvas, to set its path and port.</p>}
-      {block.kind === "Secret" && (
-        <Notice>
-          This points at a Secret that already exists in the namespace. Kupi never puts Secret values in a manifest: create or change it on the Secrets page.
-        </Notice>
-      )}
-      {block.kind === "ConfigMap" && <Notice tone="warn">Don't put passwords or tokens here: ConfigMaps aren't secret. Use a Secret block instead.</Notice>}
-      {WORKLOADS.has(block.kind) && (
-        <div className="flex flex-col gap-2">
-          <div className="text-[12px] font-medium text-muted">Sidecar containers</div>
-          {sidecars.length === 0 && <p className="text-[12px] text-muted">None. A sidecar runs next to the main container in every pod, like a log shipper or a proxy.</p>}
-          {sidecars.map((s, i) => (
-            <div key={i} className="flex flex-col gap-2 rounded-lg border border-line bg-panel p-2.5">
-              <div className="grid grid-cols-2 gap-2">
-                <Field label="Name">
-                  <input className={`${inputClass} font-mono`} value={s.name} spellCheck={false} onChange={(e) => setSidecar(i, { name: e.target.value })} />
-                </Field>
-                <Field label="Image">
-                  <input className={`${inputClass} font-mono`} value={s.image} spellCheck={false} placeholder="registry/tool:1.0" onChange={(e) => setSidecar(i, { image: e.target.value })} />
-                </Field>
-              </div>
-              <Field label="Command" hint="Split on spaces, no shell. Leave empty to use the image's own.">
-                <input className={`${inputClass} font-mono`} value={s.command} spellCheck={false} onChange={(e) => setSidecar(i, { command: e.target.value })} />
-              </Field>
-              <div>
-                <Button variant="ghost" icon={<Trash2 className="size-4" />} onClick={() => onChange({ sidecars: sidecars.filter((_, n) => n !== i) })}>
-                  Remove sidecar
-                </Button>
-              </div>
-            </div>
-          ))}
-          <div>
-            <Button icon={<Plus className="size-4" />} onClick={() => onChange({ sidecars: [...sidecars, { name: freeSidecarName(block, sidecars), image: "", command: "" }] })}>
-              Add a sidecar
-            </Button>
-          </div>
-          {sidecars.length > 0 && <p className="text-[12px] text-muted">Sidecars get the same locked-down security settings and small resource limits. Ports, config and storage links apply to the main container.</p>}
-        </div>
-      )}
-      {(out.length > 0 || into.length > 0) && (
-        <div className="text-[12px] text-muted">
-          <div className="mb-1 font-medium">Connections</div>
-          {out.map((l) => (
-            <button key={l.id} className="block text-left hover:text-fg hover:underline" onClick={() => onSelectLink(l.id)}>
-              {l.kind === "routes" ? `routes ${(l.fields?.path ?? "/").trim() || "/"} to` : LINK_LABEL[l.kind]} {byId.get(l.to)?.kind} {byId.get(l.to)?.name}
-            </button>
-          ))}
-          {into.map((l) => (
-            <button key={l.id} className="block text-left hover:text-fg hover:underline" onClick={() => onSelectLink(l.id)}>
-              {byId.get(l.from)?.kind} {byId.get(l.from)?.name} {LINK_LABEL[l.kind]} this
-            </button>
-          ))}
-        </div>
-      )}
-      <div>
-        <Button variant="ghost" icon={<Trash2 className="size-4" />} onClick={onRemove}>
-          Remove block
-        </Button>
-      </div>
-    </div>
-  );
-}
-
-function freeSidecarName(block: Block, sidecars: Sidecar[]): string {
-  const taken = new Set([block.name.trim(), ...sidecars.map((s) => s.name.trim())]);
-  for (let i = 1; ; i++) {
-    const name = i === 1 ? "sidecar" : `sidecar-${i}`;
-    if (!taken.has(name)) return name;
-  }
-}
-
-/** What a link does, in plain words, plus an Ingress route's path and port. */
-function LinkEditor({ link, model, onChange, onRemove }: { link: Link; model: BuildModel; onChange: (f: Record<string, string>) => void; onRemove: () => void }) {
-  const from = model.blocks.find((b) => b.id === link.from);
-  const to = model.blocks.find((b) => b.id === link.to);
-  if (!from || !to) return null;
-  const servicePorts = to.kind === "Service" ? parseServicePorts(to.fields.ports).ports : [];
-  const claim = to.name.trim();
-  const text: Record<Link["kind"], string> = {
-    selects: `Service ${from.name} sends traffic to the pods of ${to.kind} ${to.name}: its selector is app=${to.name}, and each Service port goes to the container port it names.`,
-    routes: `Ingress ${from.name} sends requests whose path starts with this prefix to Service ${to.name}.`,
-    env: `Every key in ${to.kind} ${to.name} becomes an environment variable in ${from.kind} ${from.name}'s main container (envFrom).`,
-    mounts:
-      from.kind === "StatefulSet"
-        ? `Each copy of StatefulSet ${from.name} gets its own claim with ${to.name}'s size and class, mounted at /data/${claim}. The claims are named ${claim}-${from.name.trim()}-0, -1 and so on, and stay when the StatefulSet is deleted.`
-        : `${from.kind} ${from.name} mounts the claim ${to.name} at /data/${claim} in its main container.`,
-    scales: `Autoscaler ${from.name} changes how many copies of ${to.kind} ${to.name} run, between its fewest and most copies, from CPU use.`,
-  };
-  const port = link.fields?.port ?? "";
-  return (
-    <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-center gap-1.5 text-[12px]">
-        <span className="rounded bg-panel-2 px-1.5 py-0.5 font-mono">{from.kind}</span>
-        <span className="font-medium">{from.name}</span>
-        <span className="text-muted">→</span>
-        <span className="rounded bg-panel-2 px-1.5 py-0.5 font-mono">{to.kind}</span>
-        <span className="font-medium">{to.name}</span>
-      </div>
-      <p className="text-[13px] leading-5 text-muted">{text[link.kind]}</p>
-      {link.kind === "routes" && (
-        <>
-          <Field label="Path" hint="A prefix: /api also matches /api/users.">
-            <input className={`${inputClass} font-mono`} value={link.fields?.path ?? "/"} spellCheck={false} onChange={(e) => onChange({ path: e.target.value })} />
-          </Field>
-          <Field label="Service port">
-            <select className={inputClass} value={port} onChange={(e) => onChange({ port: e.target.value })}>
-              <option value="">{servicePorts.length ? `First port (${servicePorts[0].port})` : "First port"}</option>
-              {servicePorts.map((p) => (
-                <option key={p.port} value={String(p.port)}>
-                  {p.port} → {String(p.target)}
-                </option>
-              ))}
-              {port && !servicePorts.some((p) => String(p.port) === port) && <option value={port}>{port} (not on the Service)</option>}
-            </select>
-          </Field>
-        </>
-      )}
-      <div>
-        <Button variant="ghost" icon={<Trash2 className="size-4" />} onClick={onRemove}>
-          Remove link
-        </Button>
-      </div>
+      <ReviewDialog
+        plan={review}
+        onClose={() => setReview(null)}
+        onTakeOver={() => void prepare(true)}
+        onCommitted={(result) => {
+          setReview(null);
+          setDone(`${result.message}. Audit entry #${result.auditSeq}.`);
+          const ns = model.namespace.trim();
+          // What was just applied is the new baseline for blocks opened from the cluster.
+          setModel((m) => rebase(m, plan.byBlock));
+          setLive(ns);
+          setPanel("live");
+          loadCapacity();
+          // Show the namespace just built in, everywhere, so it can be opened here or on the Map.
+          void reloadNamespaces().then(() => setNamespace(ns));
+        }}
+      />
     </div>
   );
 }

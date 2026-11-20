@@ -134,7 +134,7 @@ export function Sidebar({ version }: { version: string }) {
         <NavButton label="Create or edit" active={route.page === "apply"} onClick={() => navigate({ page: "apply" })} icon={<FileCode className={icon} aria-hidden />}>
           Create or edit
         </NavButton>
-        <NavButton label="Build" active={is({ page: "build" })} onClick={() => navigate({ page: "build" })} icon={<Blocks className={icon} aria-hidden />}>
+        <NavButton label="Build" active={route.page === "build"} onClick={() => navigate({ page: "build" })} icon={<Blocks className={icon} aria-hidden />}>
           Build
         </NavButton>
         <NavButton label="Terminal" active={is({ page: "terminal" })} onClick={() => navigate({ page: "terminal" })} icon={<SquareTerminal className={icon} aria-hidden />}>

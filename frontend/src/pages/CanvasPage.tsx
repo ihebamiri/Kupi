@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Background, Controls, MiniMap, ReactFlow, ReactFlowProvider, useReactFlow, type Edge, type Node } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { History, RefreshCw, Route, Search } from "lucide-react";
+import { Blocks, History, RefreshCw, Route, Search } from "lucide-react";
 import { ReplayBar, TrafficPanel } from "../components/MapTools";
 import { CanvasNode, NamespaceFrame, POD_CHIP_H, POD_CHIP_W, PodChip, type CanvasNodeData, type PodChipData } from "../components/CanvasNode";
 import { DetailPanel } from "../components/DetailPanel";
@@ -64,7 +64,7 @@ function Canvas() {
   const { active, namespace } = useClusters();
   const { settings } = useSettings();
   const refreshMs = settings.mapRefreshSeconds * 1000;
-  const { findType } = useNav();
+  const { findType, navigate } = useNav();
   const { fitView } = useReactFlow();
   const [graph, setGraph] = useState<GraphData | null>(null);
   const [positions, setPositions] = useState<Positioned[]>([]);
@@ -327,6 +327,15 @@ function Canvas() {
               }}
             >
               Replay
+            </Button>
+            <Button
+              variant="ghost"
+              icon={<Blocks className="size-4" />}
+              disabled={!namespace}
+              title={namespace ? `Open ${namespace} on the Build canvas to change it visually` : "Pick a namespace in the top bar first"}
+              onClick={() => navigate({ page: "build", importNamespace: namespace })}
+            >
+              Open in Build
             </Button>
             <Button variant="ghost" busy={loading} icon={<RefreshCw className="size-4" />} aria-label="Refresh" onClick={() => void load()} />
           </div>

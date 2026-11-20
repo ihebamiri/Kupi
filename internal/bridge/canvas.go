@@ -26,6 +26,16 @@ func (s *CanvasService) Graph(ctx context.Context, contextName, namespace string
 	return graph.Build(ctx, sess.Reader(), namespace)
 }
 
+// Capacity reports the CPU and memory the cluster's nodes offer and what
+// running pods already request, for the Build canvas's "does it fit?" meter.
+func (s *CanvasService) Capacity(ctx context.Context, contextName string) (*graph.Capacity, error) {
+	sess, err := s.d.session(contextName)
+	if err != nil {
+		return nil, err
+	}
+	return graph.ClusterCapacity(ctx, sess.Reader())
+}
+
 // Pods returns the pods behind a workload or Service on the canvas.
 func (s *CanvasService) Pods(ctx context.Context, contextName, kind, namespace, name string) (*graph.PodsResult, error) {
 	sess, err := s.d.session(contextName)

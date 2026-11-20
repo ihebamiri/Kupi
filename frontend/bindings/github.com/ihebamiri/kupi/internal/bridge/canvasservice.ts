@@ -15,6 +15,14 @@ import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wails
 import * as graph$0 from "../graph/models.js";
 
 /**
+ * Capacity reports the CPU and memory the cluster's nodes offer and what
+ * running pods already request, for the Build canvas's "does it fit?" meter.
+ */
+export function Capacity(contextName: string): $CancellablePromise<graph$0.Capacity | null> {
+    return $Call.ByID(2342404411, contextName);
+}
+
+/**
  * Graph returns how the objects in a namespace ("" for all) connect.
  */
 export function Graph(contextName: string, $namespace: string): $CancellablePromise<graph$0.Graph | null> {

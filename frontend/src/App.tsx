@@ -90,7 +90,7 @@ function Main() {
       )}
       {route.page === "build" && (
         <Suspense fallback={<p className="text-[13px] text-muted">Loading the canvas…</p>}>
-          <BuildPage />
+          <BuildPage key={route.importNamespace ?? "build"} importNamespace={route.importNamespace} />
         </Suspense>
       )}
       {route.page === "forwards" && <ForwardsPage />}

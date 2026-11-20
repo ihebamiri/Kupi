@@ -55,7 +55,7 @@ export type {
   TagView,
 } from "../../bindings/github.com/ihebamiri/kupi/internal/bridge";
 export type { DiskUsage } from "../../bindings/github.com/ihebamiri/kupi/internal/engine";
-export type { PodSummary, PodsResult } from "../../bindings/github.com/ihebamiri/kupi/internal/graph";
+export type { Capacity as ClusterCapacity, Graph as MapGraph, PodSummary, PodsResult } from "../../bindings/github.com/ihebamiri/kupi/internal/graph";
 export type { Finding as ScanFinding, Report as ScanReport, SignatureReport } from "../../bindings/github.com/ihebamiri/kupi/internal/imagescan";
 export type { Info as ChartInfo, Package as ChartPackage, Version as ChartVersion } from "../../bindings/github.com/ihebamiri/kupi/internal/charts";
 export type { Settings, Snippet as SavedSnippet } from "../../bindings/github.com/ihebamiri/kupi/internal/settings";

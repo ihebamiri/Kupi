@@ -44,7 +44,11 @@ Kupi puts everything you need to run Kubernetes in one window: every resource ty
 
 <img src="docs/images/review.png" alt="Reviewing a manifest with four objects before applying it" width="49%" align="right" />
 
-- **Build canvas**: drag Deployments, StatefulSets, DaemonSets, Services, Ingresses, config and storage together, connect them, and Kupi writes the selectors, ports, routes, `envFrom`, volumes and per-copy claims, with secure defaults and optional sidecars. The manifest goes through the same review as any other change.
+- **Build canvas**: drag Deployments, StatefulSets, DaemonSets, Services, Ingresses, config and storage together, connect them, and Kupi writes the selectors, ports, routes, `envFrom`, volumes and per-copy claims, with secure defaults and optional sidecars.
+  - **Draw who may call whom** and Kupi generates zero-trust NetworkPolicies, then proves them against the live cluster.
+  - **Apply and watch it come alive**: blocks turn into live status, with every pod as it starts and the reason when one fails.
+  - **Open a running namespace** to reshape it visually: only what you change is written back, on top of the live objects.
+  - **Badges before you deploy**: Pod Security level, Trivy findings, and whether it fits the cluster's free capacity.
 - **Forms from the cluster's own schema**, kept in sync with a YAML editor. Fields suggest the namespaces, ConfigMaps, Secrets and other objects that exist; CPU, memory and replicas have sliders.
 - **Whole manifests:** paste or open a file with many objects. Kupi checks each one and applies them in a safe order with one confirmation.
 - **Scale, restart, delete, port-forward** from any object.

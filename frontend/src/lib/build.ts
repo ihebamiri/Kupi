@@ -33,18 +33,34 @@ export interface Block {
   /** Kind-specific settings, all kept as the text the user typed. */
   fields: Record<string, string>;
   sidecars?: Sidecar[];
+  /**
+   * For a block opened from the cluster: the live object (cleaned of status
+   * and server fields), and the fields and sidecars as they were read. Only
+   * what changed since is written back, on top of the live object, so
+   * Kupi's template defaults never land on a running app.
+   */
+  source?: Obj;
+  origFields?: Record<string, string>;
+  origSidecars?: Sidecar[];
+  /** Fields that can't be edited on the canvas (the editor can). */
+  locked?: string[];
+  /** The tool that manages a block opened from the cluster (Helm, Argo CD, Flux), if any. */
+  managedBy?: string;
 }
 
-export type LinkKind = "selects" | "routes" | "env" | "mounts" | "scales";
+export type LinkKind = "selects" | "routes" | "env" | "mounts" | "scales" | "talks";
 
 export interface Link {
   id: string;
-  /** Always the side that refers to the other (Service → Deployment, Deployment → ConfigMap). */
+  /** Always the side that refers to the other (Service → Deployment, Deployment → ConfigMap, caller → callee). */
   from: string;
   to: string;
   kind: LinkKind;
-  /** Settings of the link itself: an Ingress route's path and Service port. */
+  /** Settings of the link itself: an Ingress route's path and Service port, or the port a caller may use. */
   fields?: Record<string, string>;
+  /** A connection that already exists in the cluster. It can't be removed on the canvas. */
+  imported?: boolean;
+  origFields?: Record<string, string>;
 }
 
 export interface BuildModel {
@@ -52,6 +68,10 @@ export interface BuildModel {
   createNamespace: boolean;
   blocks: Block[];
   links: Link[];
+  /** Add NetworkPolicies so only the drawn "may call" links (and Ingress and public Service traffic) get in. */
+  lockdown?: boolean;
+  /** Where the Ingress controller's pods run, for lockdown: kube-system for k3s's Traefik, ingress-nginx for ingress-nginx. */
+  ingressNamespace?: string;
 }
 
 export interface Issue {
@@ -306,6 +326,8 @@ const RULES: { from: BlockKind[]; to: BlockKind[]; kind: LinkKind }[] = [
   { from: ["Deployment", "StatefulSet", "DaemonSet", "Job", "CronJob"], to: ["ConfigMap", "Secret"], kind: "env" },
   { from: ["Deployment", "StatefulSet", "DaemonSet", "Job", "CronJob"], to: ["PersistentVolumeClaim"], kind: "mounts" },
   { from: ["HorizontalPodAutoscaler"], to: ["Deployment", "StatefulSet"], kind: "scales" },
+  // Drawn from caller to callee: "web may call api".
+  { from: ["Deployment", "StatefulSet", "DaemonSet", "Job", "CronJob"], to: ["Deployment", "StatefulSet", "DaemonSet"], kind: "talks" },
 ];
 
 /** Kinds that point at exactly one thing. */
@@ -334,6 +356,7 @@ export function linkFor(a: Block, b: Block, links: Link[]): LinkResult {
     const link: Omit<Link, "id"> = { from: x.id, to: y.id, kind: rule.kind };
     // The first route gets "/", later ones a path named after their Service.
     if (rule.kind === "routes") link.fields = { path: links.some((l) => l.from === x.id) ? `/${y.name.trim()}` : "/", port: "" };
+    if (rule.kind === "talks") link.fields = { port: "" };
     return { ok: true, link };
   }
   return { ok: false, reason: `${a.kind} and ${b.kind} don't connect directly. ${hintFor(a.kind, b.kind)}`.trim() };
@@ -356,7 +379,52 @@ export const LINK_LABEL: Record<LinkKind, string> = {
   env: "env from",
   mounts: "mounts",
   scales: "scales",
+  talks: "may call",
 };
+
+/** The labels that identify a workload's pods: app=<name> for new ones, the live selector for opened ones. */
+export function podLabels(b: Block): Record<string, string> {
+  if (b.source) {
+    const spec = (b.source.spec ?? {}) as Obj;
+    const match = ((spec.selector ?? {}) as Obj).matchLabels as Record<string, string> | undefined;
+    if (b.kind !== "Job" && b.kind !== "CronJob" && match && Object.keys(match).length) return { ...match };
+    const template = b.kind === "CronJob" ? (((spec.jobTemplate ?? {}) as Obj).spec as Obj | undefined)?.template : spec.template;
+    const labels = (((template ?? {}) as Obj).metadata as Obj | undefined)?.labels as Record<string, string> | undefined;
+    return { ...(labels ?? {}) };
+  }
+  return { app: b.name.trim() };
+}
+
+function sameJSON(a: unknown, b: unknown): boolean {
+  return JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+}
+
+/**
+ * After an apply: blocks opened from the cluster take what was applied as
+ * their new live object, so they no longer count as changed, and links they
+ * gained now exist in the cluster.
+ */
+export function rebase(model: BuildModel, byBlock: Map<string, Obj[]>): BuildModel {
+  const applied = new Set(model.blocks.filter((b) => b.source && blockChanged(b, model.links)).map((b) => b.id));
+  return {
+    ...model,
+    blocks: model.blocks.map((b) => {
+      const obj = applied.has(b.id) ? byBlock.get(b.id)?.find((o) => o.kind === b.kind) : undefined;
+      return obj ? { ...b, source: obj, origFields: { ...b.fields }, origSidecars: b.sidecars?.map((s) => ({ ...s })) } : b;
+    }),
+    links: model.links.map((l) => (applied.has(l.from) && l.kind !== "talks" ? { ...l, imported: true, origFields: l.fields ? { ...l.fields } : undefined } : l)),
+  };
+}
+
+/** Has a block opened from the cluster been changed on the canvas? New blocks always count as changed. */
+export function blockChanged(b: Block, links: Link[]): boolean {
+  if (!b.source) return true;
+  if (b.origFields && Object.keys(b.fields).some((k) => (b.fields[k] ?? "") !== (b.origFields?.[k] ?? ""))) return true;
+  if (!sameJSON(b.sidecars ?? [], b.origSidecars ?? [])) return true;
+  // New links change the object they start from (traffic links only add policies).
+  if (links.some((l) => l.from === b.id && !l.imported && l.kind !== "talks")) return true;
+  return links.some((l) => l.from === b.id && l.imported && l.kind === "routes" && !sameJSON(l.fields, l.origFields));
+}
 
 // --- Checks -----------------------------------------------------------------
 
@@ -422,24 +490,39 @@ export function check(model: BuildModel): Issue[] {
     else if (!rule.test(name) || name.length > max)
       add("error", `${label}: names use lowercase letters, digits and dashes${b.kind === "Service" ? ", start with a letter" : ""}, up to ${max} characters.`, b);
     const key = `${b.kind}/${name}`;
-    if (name && seen.has(key)) add("error", `Two ${b.kind} blocks are called ${name}.`, b);
+    if (name && seen.has(key))
+      add("error", seen.get(key)?.source || b.source ? `${b.kind} ${name} already exists in the cluster: a new block with that name would replace it. Rename the new one.` : `Two ${b.kind} blocks are called ${name}.`, b);
     seen.set(key, b);
 
+    // A block opened from the cluster and left alone is only context: nothing is written for it.
+    const imported = !!b.source;
+    if (imported && !blockChanged(b, model.links)) {
+      if (WORKLOADS.has(b.kind)) workloadNames.set(name, b);
+      continue;
+    }
+    if (imported && b.managedBy)
+      add("warn", `${label} is managed by ${b.managedBy}, which may undo changes made here on its next sync. Change it at its source, or propose a pull request from the GitOps page.`, b);
+    if (imported && b.kind === "Job") add("error", `${label} already exists, and a Job's pods can't be changed after it's created. Delete it and add a new Job instead.`, b);
+    if (imported && b.kind === "StatefulSet" && model.links.some((l) => l.from === b.id && l.kind === "mounts" && !l.imported))
+      add("error", `${label} already exists, and per-copy storage can't be added to a running StatefulSet. Create a new StatefulSet for it.`, b);
+
     const f = b.fields;
+    const was = b.origFields ?? {};
     if (WORKLOADS.has(b.kind)) {
-      // Workloads label their pods app=<name>, so two with one name would share pods' label.
+      // New workloads label their pods app=<name>, so two with one name would share their pods' label.
       const twin = workloadNames.get(name);
-      if (name && twin && twin.kind !== b.kind)
+      if (name && twin && twin.kind !== b.kind && !(twin.source && imported))
         add("error", `${twin.kind} ${name} and ${b.kind} ${name} would both label their pods app=${name}, so a Service would send traffic to both. Rename one.`, b);
       workloadNames.set(name, b);
-      checkContainer(add, label, b, f.image ?? "");
+      if (!imported || f.image !== was.image) checkContainer(add, label, b, f.image ?? "");
       const containerNames = new Set([name]);
       for (const [i, s] of (b.sidecars ?? []).entries()) {
         const sl = `${label}, sidecar ${s.name.trim() || i + 1}`;
         if (!DNS_LABEL.test(s.name.trim()) || s.name.trim().length > 63) add("error", `${sl}: container names use lowercase letters, digits and dashes.`, b);
         else if (containerNames.has(s.name.trim())) add("error", `${label}: two containers are called ${s.name.trim()}.`, b);
         containerNames.add(s.name.trim());
-        checkContainer(add, sl, b, s.image);
+        const before = b.origSidecars?.find((o) => o.name === s.name);
+        if (!before || before.image !== s.image) checkContainer(add, sl, b, s.image);
       }
     }
     if (SERVED.has(b.kind)) {
@@ -449,18 +532,18 @@ export function check(model: BuildModel): Issue[] {
       const nums = ports.map((p) => p.port);
       if (new Set(names).size !== names.length || new Set(nums).size !== nums.length) add("error", `${label}: each container port needs its own name and number.`, b);
     }
-    if (SCALABLE.has(b.kind)) {
+    if (SCALABLE.has(b.kind) && (!imported || f.replicas !== was.replicas)) {
       const r = int(f.replicas);
       if (r === null || r > 1000) add("error", `${label}: copies running must be a whole number up to 1000.`, b);
     }
-    if (b.kind === "StatefulSet" && model.blocks.some((x) => x.kind === "Service" && x.name.trim() === headlessName(name)))
+    if (b.kind === "StatefulSet" && !imported && model.blocks.some((x) => x.kind === "Service" && x.name.trim() === headlessName(name)))
       add("error", `${label} gets a headless Service called ${headlessName(name)}, and a Service block already has that name.`, b);
     if (b.kind === "CronJob" && words(f.schedule).length !== 5 && !(f.schedule ?? "").trim().startsWith("@"))
       add("error", `${label}: the schedule needs five fields, like 0 3 * * *.`, b);
     if (b.kind === "Service") checkService(add, label, b, model);
     if (b.kind === "Ingress") {
       const routes = linksFrom(b);
-      if (routes.length === 0) add("error", `${label} needs a Service to route to. Connect it to one.`, b);
+      if (routes.length === 0 && !imported) add("error", `${label} needs a Service to route to. Connect it to one.`, b);
       const host = (f.host ?? "").trim();
       if (host && (!DNS_SUBDOMAIN.test(host.replace(/^\*\./, "")) || host.length > 253)) add("error", `${label}: "${host}" isn't a valid host name.`, b);
       const paths = new Set<string>();
@@ -480,9 +563,10 @@ export function check(model: BuildModel): Issue[] {
       if (bad.length) add("error", `${label}: these lines aren't KEY=value: ${bad.join(", ")}.`, b);
       else if (Object.keys(data).length === 0) add("warn", `${label} has no keys.`, b);
     }
-    if (b.kind === "Secret") add("warn", `Secret ${b.name} isn't created here: it must already exist in ${ns || "the namespace"}. Create it on the Secrets page so its values never pass through a manifest.`, b);
+    if (b.kind === "Secret" && !imported) add("warn", `Secret ${b.name} isn't created here: it must already exist in ${ns || "the namespace"}. Create it on the Secrets page so its values never pass through a manifest.`, b);
     if (b.kind === "PersistentVolumeClaim") {
       if (!QUANTITY.test((f.size ?? "").trim())) add("error", `${label}: the size must look like 1Gi or 500Mi.`, b);
+      if (imported && f.storageClass !== was.storageClass) add("error", `${label} already exists, and a claim's storage class can't be changed.`, b);
       const users = model.links.filter((l) => l.to === b.id).map((l) => byId.get(l.from)).filter(Boolean) as Block[];
       const sts = users.find((u) => u.kind === "StatefulSet");
       if (sts) {
@@ -500,7 +584,45 @@ export function check(model: BuildModel): Issue[] {
       if (linksFrom(b).length === 0) add("error", `${label} needs a Deployment or StatefulSet to scale. Connect it to one.`, b);
     }
   }
+  checkTraffic(add, model, byId);
   return issues;
+}
+
+function checkTraffic(add: Add, model: BuildModel, byId: Map<string, Block>) {
+  const talks = model.links.filter((l) => l.kind === "talks");
+  for (const l of talks) {
+    const caller = byId.get(l.from);
+    const callee = byId.get(l.to);
+    if (!caller || !callee) continue;
+    const port = (l.fields?.port ?? "").trim();
+    if (port) {
+      const n = int(port);
+      const known = parsePorts(callee.fields.ports).ports;
+      if (n !== null ? !validPort(n) : !known.some((c) => c.name === port))
+        add("error", `${caller.kind} ${caller.name} may call ${callee.kind} ${callee.name} on port "${port}", which isn't one of its container ports.`, undefined, l);
+    }
+    if (Object.keys(podLabels(caller)).length === 0)
+      add("error", `${caller.kind} ${caller.name}'s pods have no labels, so a NetworkPolicy can't tell them apart. Add labels to its pod template in the editor first.`, caller, l);
+  }
+  if (!model.lockdown) {
+    if (talks.length) add("warn", `"May call" links only take effect with Lock down traffic switched on.`);
+    return;
+  }
+  const served = model.blocks.filter((b) => SERVED.has(b.kind));
+  if (served.length === 0) {
+    add("warn", "Lock down traffic has nothing to protect yet: it covers Deployments, StatefulSets and DaemonSets.");
+    return;
+  }
+  add(
+    "warn",
+    `Lock down traffic adds a NetworkPolicy for ${served.length === 1 ? "the long-running workload" : `each of the ${served.length} long-running workloads`}: only the "may call" links you drew, the Ingress controller and public Service ports get in. Outgoing traffic isn't limited. Policies only work if the cluster's network plugin enforces them.`,
+  );
+  if (served.some((b) => b.source)) add("warn", "Locking down workloads that already run blocks every connection to them you haven't drawn, including ones from outside this canvas.");
+  for (const w of served)
+    if (Object.keys(podLabels(w)).length === 0) add("error", `${w.kind} ${w.name}'s pods have no labels, so a NetworkPolicy can't select them. Add labels in the editor first.`, w);
+  const ingNs = (model.ingressNamespace ?? "").trim();
+  if (model.links.some((l) => l.kind === "routes") && (!DNS_LABEL.test(ingNs) || ingNs.length > 63))
+    add("error", "Name the namespace your Ingress controller runs in (kube-system for k3s's Traefik, ingress-nginx for ingress-nginx), so lockdown lets its traffic in.");
 }
 
 type Add = (level: Issue["level"], text: string, block?: Block, link?: Link) => void;
@@ -572,72 +694,82 @@ function claimSpec(pvc: Block): Obj {
 
 const ORDER: BlockKind[] = ["ConfigMap", "PersistentVolumeClaim", "Deployment", "StatefulSet", "DaemonSet", "Job", "CronJob", "Service", "Ingress", "HorizontalPodAutoscaler"];
 
+export interface BuildPlan {
+  /** What gets applied, in order. */
+  objects: Obj[];
+  /** The objects each block stands for: what it generates, or the live object for one opened and left alone. */
+  byBlock: Map<string, Obj[]>;
+}
+
 /**
  * The objects the canvas describes, in apply order. Secret blocks are
  * references only and produce nothing; a claim used by a StatefulSet becomes
- * its per-copy template. Call check() first: this assumes the fields are
- * valid and fills gaps with safe defaults.
+ * its per-copy template. Blocks opened from the cluster appear only when
+ * changed, as the live object with the changes on top. Call check() first:
+ * this assumes the fields are valid and fills gaps with safe defaults.
  */
-export function buildObjects(model: BuildModel): Obj[] {
+export function buildPlan(model: BuildModel): BuildPlan {
   const ns = model.namespace.trim() || "default";
   const byId = new Map(model.blocks.map((b) => [b.id, b]));
   const out: Obj[] = [];
-  if (model.createNamespace) out.push({ apiVersion: "v1", kind: "Namespace", metadata: { name: ns } });
+  const byBlock = new Map<string, Obj[]>();
+  if (model.createNamespace && !model.blocks.some((b) => b.source)) out.push({ apiVersion: "v1", kind: "Namespace", metadata: { name: ns } });
   const usedByStatefulSet = new Set(model.links.filter((l) => l.kind === "mounts" && byId.get(l.from)?.kind === "StatefulSet").map((l) => l.to));
 
   const blocks = [...model.blocks].sort((a, b) => ORDER.indexOf(a.kind) - ORDER.indexOf(b.kind));
   for (const b of blocks) {
-    const f = b.fields;
-    const name = b.name.trim();
-    const linked = (kind: LinkKind) => model.links.filter((l) => l.from === b.id && l.kind === kind);
-    const targets = (kind: LinkKind) => linked(kind).map((l) => byId.get(l.to)).filter(Boolean) as Block[];
-
-    if (WORKLOADS.has(b.kind)) {
-      out.push(...workloadObjects(b, ns, targets("env"), targets("mounts")));
+    if (b.source) {
+      if (!blockChanged(b, model.links)) {
+        byBlock.set(b.id, [b.source]);
+        continue;
+      }
+      const objs = overlay(b, model, byId);
+      byBlock.set(b.id, objs);
+      out.push(...objs);
       continue;
     }
-    switch (b.kind) {
-      case "Service": {
-        const w = targets("selects")[0];
-        const names = new Set<string>();
-        const ports = parseServicePorts(f.ports).ports.map((p) => {
-          let pname = typeof p.target === "string" ? p.target : `port-${p.port}`;
-          if (names.has(pname)) pname = `port-${p.port}`;
-          names.add(pname);
-          return { name: pname, port: p.port, targetPort: p.target };
-        });
-        const spec: Obj = { type: f.type || "ClusterIP", ports };
-        if (w) spec.selector = { app: w.name.trim() };
-        out.push({ apiVersion: "v1", kind: "Service", metadata: { name, namespace: ns }, spec });
-        break;
-      }
-      case "Ingress": {
-        const paths = linked("routes").map((l) => {
-          const svc = byId.get(l.to);
-          const first = parseServicePorts(svc?.fields.ports).ports[0]?.port ?? 80;
-          return {
-            path: (l.fields?.path ?? "").trim() || "/",
-            pathType: "Prefix",
-            backend: { service: { name: svc?.name.trim() ?? "", port: { number: int(l.fields?.port) ?? first } } },
-          };
-        });
-        const rule: Obj = { http: { paths } };
-        const host = (f.host ?? "").trim();
-        if (host) rule.host = host;
-        const spec: Obj = { rules: [rule] };
-        if ((f.className ?? "").trim()) spec.ingressClassName = f.className.trim();
-        out.push({ apiVersion: "networking.k8s.io/v1", kind: "Ingress", metadata: { name, namespace: ns }, spec });
-        break;
-      }
-      case "ConfigMap":
-        out.push({ apiVersion: "v1", kind: "ConfigMap", metadata: { name, namespace: ns }, data: parseData(f.data ?? "").data });
-        break;
-      case "PersistentVolumeClaim":
-        if (!usedByStatefulSet.has(b.id)) out.push({ apiVersion: "v1", kind: "PersistentVolumeClaim", metadata: { name, namespace: ns }, spec: claimSpec(b) });
-        break;
-      case "HorizontalPodAutoscaler": {
-        const w = targets("scales")[0];
-        out.push({
+    const objs = generate(b, model, byId, ns, usedByStatefulSet);
+    byBlock.set(b.id, objs);
+    out.push(...objs);
+  }
+  out.push(...policies(model, byId, ns));
+  return { objects: out, byBlock };
+}
+
+export function buildObjects(model: BuildModel): Obj[] {
+  return buildPlan(model).objects;
+}
+
+function generate(b: Block, model: BuildModel, byId: Map<string, Block>, ns: string, usedByStatefulSet: Set<string>): Obj[] {
+  const f = b.fields;
+  const name = b.name.trim();
+  const linked = (kind: LinkKind) => model.links.filter((l) => l.from === b.id && l.kind === kind);
+  const targets = (kind: LinkKind) => linked(kind).map((l) => byId.get(l.to)).filter(Boolean) as Block[];
+
+  if (WORKLOADS.has(b.kind)) return workloadObjects(b, ns, targets("env"), targets("mounts"));
+  switch (b.kind) {
+    case "Service": {
+      const w = targets("selects")[0];
+      const spec: Obj = { type: f.type || "ClusterIP", ports: servicePorts(f.ports) };
+      if (w) spec.selector = podLabels(w);
+      return [{ apiVersion: "v1", kind: "Service", metadata: { name, namespace: ns }, spec }];
+    }
+    case "Ingress": {
+      const rule: Obj = { http: { paths: linked("routes").map((l) => ingressPath(l, byId)) } };
+      const host = (f.host ?? "").trim();
+      if (host) rule.host = host;
+      const spec: Obj = { rules: [rule] };
+      if ((f.className ?? "").trim()) spec.ingressClassName = f.className.trim();
+      return [{ apiVersion: "networking.k8s.io/v1", kind: "Ingress", metadata: { name, namespace: ns }, spec }];
+    }
+    case "ConfigMap":
+      return [{ apiVersion: "v1", kind: "ConfigMap", metadata: { name, namespace: ns }, data: parseData(f.data ?? "").data }];
+    case "PersistentVolumeClaim":
+      return usedByStatefulSet.has(b.id) ? [] : [{ apiVersion: "v1", kind: "PersistentVolumeClaim", metadata: { name, namespace: ns }, spec: claimSpec(b) }];
+    case "HorizontalPodAutoscaler": {
+      const w = targets("scales")[0];
+      return [
+        {
           apiVersion: "autoscaling/v2",
           kind: "HorizontalPodAutoscaler",
           metadata: { name, namespace: ns },
@@ -645,16 +777,80 @@ export function buildObjects(model: BuildModel): Obj[] {
             scaleTargetRef: { apiVersion: "apps/v1", kind: w?.kind ?? "Deployment", name: w?.name.trim() ?? "" },
             minReplicas: int(f.min) ?? 1,
             maxReplicas: int(f.max) ?? 1,
-            metrics: [{ type: "Resource", resource: { name: "cpu", target: { type: "Utilization", averageUtilization: int(f.cpu) ?? 70 } } }],
+            metrics: [cpuMetric(int(f.cpu) ?? 70)],
           },
-        });
-        break;
-      }
-      case "Secret":
-        break;
+        },
+      ];
+    }
+    default:
+      return [];
+  }
+}
+
+function cpuMetric(percent: number): Obj {
+  return { type: "Resource", resource: { name: "cpu", target: { type: "Utilization", averageUtilization: percent } } };
+}
+
+function servicePorts(text: string | undefined): Obj[] {
+  const names = new Set<string>();
+  return parseServicePorts(text).ports.map((p) => {
+    let pname = typeof p.target === "string" ? p.target : `port-${p.port}`;
+    if (names.has(pname)) pname = `port-${p.port}`;
+    names.add(pname);
+    return { name: pname, port: p.port, targetPort: p.target };
+  });
+}
+
+function ingressPath(l: Link, byId: Map<string, Block>): Obj {
+  const svc = byId.get(l.to);
+  const first = parseServicePorts(svc?.fields.ports).ports[0]?.port ?? 80;
+  return {
+    path: (l.fields?.path ?? "").trim() || "/",
+    pathType: "Prefix",
+    backend: { service: { name: svc?.name.trim() ?? "", port: { number: int(l.fields?.port) ?? first } } },
+  };
+}
+
+function newSidecar(s: Sidecar, security: unknown): Obj {
+  const c: Obj = {
+    name: s.name.trim(),
+    image: s.image.trim(),
+    resources: { requests: { cpu: "50m", memory: "32Mi" }, limits: { memory: "128Mi" } },
+    securityContext: structuredClone(security ?? {}),
+  };
+  const cmd = words(s.command);
+  if (cmd.length) c.command = cmd;
+  return c;
+}
+
+/** Adds envFrom entries and claim volumes for links, skipping ones the pod already has. */
+function addEnvAndClaims(kind: BlockKind, spec: Obj, pod: Obj, main: Obj, env: Block[], claims: Block[]) {
+  const envFrom = (main.envFrom as Obj[] | undefined) ?? [];
+  const has = (key: string, name: string) => envFrom.some((e) => ((e[key] ?? {}) as Obj).name === name);
+  for (const t of env) {
+    const key = t.kind === "ConfigMap" ? "configMapRef" : "secretRef";
+    if (!has(key, t.name.trim())) envFrom.push({ [key]: { name: t.name.trim() } });
+  }
+  if (envFrom.length) main.envFrom = envFrom;
+  if (!claims.length) return;
+  const mounts = (main.volumeMounts as Obj[] | undefined) ?? [];
+  const volumes = (pod.volumes as Obj[] | undefined) ?? [];
+  const templates = (spec.volumeClaimTemplates as Obj[] | undefined) ?? [];
+  for (const pvc of claims) {
+    const claim = pvc.name.trim();
+    if (kind === "StatefulSet") {
+      // Each copy gets its own claim, named <claim>-<statefulset>-<n>.
+      templates.push({ metadata: { name: claim }, spec: claimSpec(pvc) });
+      mounts.push({ name: claim, mountPath: `/data/${claim}` });
+    } else if (!volumes.some((v) => ((v.persistentVolumeClaim ?? {}) as Obj).claimName === claim)) {
+      const vol = volumeName(claim);
+      volumes.push({ name: vol, persistentVolumeClaim: { claimName: claim } });
+      mounts.push({ name: vol, mountPath: `/data/${claim}` });
     }
   }
-  return out;
+  main.volumeMounts = mounts;
+  pod.volumes = volumes;
+  if (templates.length) spec.volumeClaimTemplates = templates;
 }
 
 /** A workload, plus the headless Service a StatefulSet needs. */
@@ -674,9 +870,9 @@ function workloadObjects(b: Block, ns: string, env: Block[], claims: Block[]): O
   if (command.length) main.command = command;
   else delete main.command;
   const out: Obj[] = [];
+  const labels = { app: name };
 
   if (SERVED.has(b.kind)) {
-    const labels = { app: name };
     meta.labels = labels;
     spec.selector = { matchLabels: { ...labels } };
     (spec.template as Obj).metadata = { labels: { ...labels } };
@@ -696,51 +892,182 @@ function workloadObjects(b: Block, ns: string, env: Block[], claims: Block[]): O
         spec: { clusterIP: "None", selector: { ...labels }, ports: ports.map((p) => ({ name: p.name, port: p.port, targetPort: p.name })) },
       });
     }
-  } else if (b.kind === "CronJob") {
-    spec.schedule = (f.schedule ?? "").trim();
+  } else {
+    // Jobs label their pods too, so traffic rules can name them.
+    const tmpl = b.kind === "CronJob" ? (((spec.jobTemplate as Obj).spec as Obj).template as Obj) : (spec.template as Obj);
+    tmpl.metadata = { labels: { ...labels } };
+    if (b.kind === "CronJob") spec.schedule = (f.schedule ?? "").trim();
   }
 
-  const envFrom = [
-    ...env.filter((t) => t.kind === "ConfigMap").map((t) => ({ configMapRef: { name: t.name.trim() } })),
-    ...env.filter((t) => t.kind === "Secret").map((t) => ({ secretRef: { name: t.name.trim() } })),
-  ];
-  if (envFrom.length) main.envFrom = envFrom;
-
-  if (claims.length) {
-    const mounts = (main.volumeMounts as Obj[] | undefined) ?? [];
-    const volumes = (pod.volumes as Obj[] | undefined) ?? [];
-    const templates: Obj[] = [];
-    for (const pvc of claims) {
-      const claim = pvc.name.trim();
-      if (b.kind === "StatefulSet") {
-        // Each copy gets its own claim, named <claim>-<statefulset>-<n>.
-        templates.push({ metadata: { name: claim }, spec: claimSpec(pvc) });
-        mounts.push({ name: claim, mountPath: `/data/${claim}` });
-      } else {
-        const vol = volumeName(claim);
-        volumes.push({ name: vol, persistentVolumeClaim: { claimName: claim } });
-        mounts.push({ name: vol, mountPath: `/data/${claim}` });
-      }
-    }
-    main.volumeMounts = mounts;
-    pod.volumes = volumes;
-    if (templates.length) spec.volumeClaimTemplates = templates;
-  }
-
-  for (const s of b.sidecars ?? []) {
-    const c: Obj = {
-      name: s.name.trim(),
-      image: s.image.trim(),
-      resources: { requests: { cpu: "50m", memory: "32Mi" }, limits: { memory: "128Mi" } },
-      securityContext: structuredClone(security),
-    };
-    const cmd = words(s.command);
-    if (cmd.length) c.command = cmd;
-    (pod.containers as Obj[]).push(c);
-  }
+  addEnvAndClaims(b.kind, spec, pod, main, env, claims);
+  for (const s of b.sidecars ?? []) (pod.containers as Obj[]).push(newSidecar(s, security));
 
   // The headless Service goes before its StatefulSet.
   return [...out, obj];
+}
+
+/** A block opened from the cluster: the live object with only the canvas's changes on top. */
+function overlay(b: Block, model: BuildModel, byId: Map<string, Block>): Obj[] {
+  const o = structuredClone(b.source!) as Obj;
+  const f = b.fields;
+  const was = b.origFields ?? {};
+  const changed = (k: string) => (f[k] ?? "") !== (was[k] ?? "");
+  const added = model.links.filter((l) => l.from === b.id && !l.imported);
+  const targets = (kind: LinkKind) => added.filter((l) => l.kind === kind).map((l) => byId.get(l.to)).filter(Boolean) as Block[];
+  const spec = (o.spec ?? {}) as Obj;
+
+  if (WORKLOADS.has(b.kind)) {
+    const pod = at(o, podSpecPath(b.kind));
+    const containers = pod.containers as Obj[];
+    const main = containers[0];
+    if (changed("image")) main.image = f.image.trim();
+    if (changed("command")) {
+      const cmd = words(f.command);
+      if (cmd.length) main.command = cmd;
+      else delete main.command;
+    }
+    if (changed("ports")) {
+      const ports = parsePorts(f.ports).ports;
+      if (ports.length) main.ports = ports.map((p) => ({ name: p.name, containerPort: p.port }));
+      else delete main.ports;
+    }
+    if (changed("replicas") && b.kind !== "DaemonSet") spec.replicas = int(f.replicas) ?? 1;
+    if (changed("schedule")) spec.schedule = f.schedule.trim();
+    if (!sameJSON(b.sidecars ?? [], b.origSidecars ?? [])) {
+      const originals = containers.slice(1);
+      pod.containers = [
+        main,
+        ...(b.sidecars ?? []).map((s) => {
+          const orig = originals.find((c) => c.name === s.name);
+          if (!orig) return newSidecar(s, main.securityContext);
+          const before = b.origSidecars?.find((x) => x.name === s.name);
+          const c = structuredClone(orig);
+          if (before?.image !== s.image) c.image = s.image.trim();
+          if (before?.command !== s.command) {
+            const cmd = words(s.command);
+            if (cmd.length) c.command = cmd;
+            else delete c.command;
+          }
+          return c;
+        }),
+      ];
+    }
+    addEnvAndClaims(b.kind, spec, pod, main, targets("env"), targets("mounts"));
+    return [o];
+  }
+  switch (b.kind) {
+    case "Service": {
+      if (changed("ports")) spec.ports = servicePorts(f.ports);
+      if (changed("type")) spec.type = f.type || "ClusterIP";
+      const w = targets("selects")[0];
+      if (w) spec.selector = podLabels(w);
+      break;
+    }
+    case "Ingress": {
+      const rules = ((spec.rules as Obj[] | undefined) ?? []).slice();
+      if (rules.length === 0) rules.push({});
+      const rule = rules[0];
+      if (changed("host")) {
+        if (f.host.trim()) rule.host = f.host.trim();
+        else delete rule.host;
+      }
+      if (changed("className")) {
+        if (f.className.trim()) spec.ingressClassName = f.className.trim();
+        else delete spec.ingressClassName;
+      }
+      const http = (rule.http ?? { paths: [] }) as Obj;
+      const paths = ((http.paths as Obj[] | undefined) ?? []).slice();
+      for (const l of model.links.filter((x) => x.from === b.id && x.kind === "routes")) {
+        const svc = byId.get(l.to)?.name.trim();
+        if (!l.imported) paths.push(ingressPath(l, byId));
+        else if (!sameJSON(l.fields, l.origFields)) {
+          // Find the live path this route was read from, and change it in place.
+          const p = paths.find((x) => (x.path ?? "/") === (l.origFields?.path ?? "/") && (((x.backend as Obj)?.service as Obj)?.name ?? "") === svc);
+          if (p) {
+            p.path = (l.fields?.path ?? "").trim() || "/";
+            const port = int(l.fields?.port);
+            if (port) ((p.backend as Obj).service as Obj).port = { number: port };
+          }
+        }
+      }
+      http.paths = paths;
+      rule.http = http;
+      spec.rules = rules;
+      break;
+    }
+    case "ConfigMap":
+      if (changed("data")) o.data = parseData(f.data ?? "").data;
+      break;
+    case "PersistentVolumeClaim":
+      if (changed("size")) {
+        const resources = (spec.resources ?? {}) as Obj;
+        resources.requests = { ...((resources.requests ?? {}) as Obj), storage: f.size.trim() };
+        spec.resources = resources;
+      }
+      break;
+    case "HorizontalPodAutoscaler": {
+      if (changed("min")) spec.minReplicas = int(f.min) ?? 1;
+      if (changed("max")) spec.maxReplicas = int(f.max) ?? 1;
+      if (changed("cpu")) {
+        const metrics = ((spec.metrics as Obj[] | undefined) ?? []).filter((m) => ((m.resource ?? {}) as Obj).name !== "cpu");
+        spec.metrics = [cpuMetric(int(f.cpu) ?? 70), ...metrics];
+      }
+      break;
+    }
+  }
+  o.spec = spec;
+  return [o];
+}
+
+/**
+ * With lockdown on, one NetworkPolicy per long-running workload: its pods
+ * accept connections only from the callers drawn to it (on the drawn port),
+ * the Ingress controller (when an Ingress routes to it), anyone on the ports
+ * of a NodePort or LoadBalancer Service, and the other copies of a
+ * StatefulSet. Other pods in the namespace aren't touched.
+ */
+function policies(model: BuildModel, byId: Map<string, Block>, ns: string): Obj[] {
+  if (!model.lockdown) return [];
+  const ingressNs = (model.ingressNamespace ?? "").trim();
+  const out: Obj[] = [];
+  for (const w of model.blocks.filter((b) => SERVED.has(b.kind))) {
+    const own = podLabels(w);
+    if (!Object.keys(own).length) continue;
+    const rules: Obj[] = [];
+    for (const l of model.links.filter((x) => x.kind === "talks" && x.to === w.id)) {
+      const caller = byId.get(l.from);
+      if (!caller || !Object.keys(podLabels(caller)).length) continue;
+      const rule: Obj = { from: [{ podSelector: { matchLabels: podLabels(caller) } }] };
+      const port = (l.fields?.port ?? "").trim();
+      if (port) rule.ports = [{ protocol: "TCP", port: int(port) ?? port }];
+      rules.push(rule);
+    }
+    if (w.kind === "StatefulSet") rules.push({ from: [{ podSelector: { matchLabels: { ...own } } }] });
+    const services = model.links.filter((l) => l.kind === "selects" && l.to === w.id).map((l) => byId.get(l.from)).filter(Boolean) as Block[];
+    const targetsOf = (svcs: Block[]) => {
+      const seen = new Set<string>();
+      const ports: Obj[] = [];
+      for (const s of svcs)
+        for (const p of parseServicePorts(s.fields.ports).ports) {
+          if (seen.has(String(p.target))) continue;
+          seen.add(String(p.target));
+          ports.push({ protocol: "TCP", port: p.target });
+        }
+      return ports;
+    };
+    const routed = services.filter((s) => model.links.some((l) => l.kind === "routes" && l.to === s.id));
+    if (routed.length && ingressNs) rules.push({ from: [{ namespaceSelector: { matchLabels: { "kubernetes.io/metadata.name": ingressNs } } }], ports: targetsOf(routed) });
+    const open = services.filter((s) => s.fields.type === "NodePort" || s.fields.type === "LoadBalancer");
+    if (open.length) rules.push({ ports: targetsOf(open) });
+    const wns = (((w.source?.metadata ?? {}) as Obj).namespace as string | undefined) ?? ns;
+    out.push({
+      apiVersion: "networking.k8s.io/v1",
+      kind: "NetworkPolicy",
+      metadata: { name: `${w.name.trim()}-allow`, namespace: wns, labels: { "app.kubernetes.io/managed-by": "kupi" } },
+      spec: { podSelector: { matchLabels: own }, policyTypes: ["Ingress"], ingress: rules },
+    });
+  }
+  return out;
 }
 
 /** One line under a block's name on the canvas. */

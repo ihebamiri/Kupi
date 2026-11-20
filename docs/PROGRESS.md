@@ -21,6 +21,7 @@ Scope of the current build: v0.1, the v0.2 Observe canvas and v0.2 features, and
 - [x] 15. Observe, round 2: Prometheus history, "can A talk to B?", replay of changes.
 - [ ] 16. Code signing: skipped.
 - [x] 17. Build canvas: drag workloads, Services, config and storage together and get a manifest. Round 2: several ports, several Ingress paths, sidecars, StatefulSet and DaemonSet blocks.
+- [x] 18. Build canvas, round 3: live mode after apply, traffic lockdown with NetworkPolicies, opening a running namespace, and security, scan and fit badges.
 
 ## Milestone 1 status
 
@@ -305,6 +306,29 @@ Known limits:
 - Sidecars and main containers must run as non-root (the secure default). Images that need root fail to start, which the Incident page shows.
 - The canvas can't load existing cluster objects; it builds new ones.
 
+## Milestone 18 status
+
+Done and verified (unit tests, server mode, and end to end on k3d):
+
+- **Apply from Build and live mode.** Apply goes through `GuardService.PrepareApply` and the usual review dialog. Afterwards the canvas polls the graph and pods every 2.5 s: health rings, "2/2 ready", one square per pod, and a failing pod's reason on its block. Checked on k3d: a new app came up green within seconds; a Deployment with a missing image tag turned red with `ErrImagePull`.
+- **Traffic lockdown.** "May call" links between workloads, an optional port, and one `<name>-allow` NetworkPolicy per long-running workload (drawn callers, the Ingress controller's namespace, public Service ports, a StatefulSet's own copies). Checked on k3d with real traffic: the drawn call returned 200, the reverse was refused, the Ingress controller still reached the app (200), and a pod in another namespace was blocked. **Check traffic** in live mode agreed on every pair.
+- **Open a running namespace.** From the Map (**Open in Build**) or the Build page. Blocks keep the live object; only changed blocks are written, as the live object with just the change on top. Checked on k3d: changing one image produced a review with exactly one changed line; changing replicas showed `spec.replicas: 2 → 3`; after the apply the canvas counted 0 objects to apply again.
+- **Badges.** Pod Security level per workload (restricted, baseline, privileged, with reasons), Trivy findings per block (checked: 3 critical and 65 high on `nginx-unprivileged:1.27-alpine`), and a fit meter from the new `CanvasService.Capacity`.
+- After an apply that creates a namespace, the namespace picker reloads and switches to it.
+- Tests: `graph.TestClusterCapacity`; `lib/podsecurity.test.ts` (5); `lib/buildImport.test.ts` (16: traffic rules and policies, import, overlays, rebase, refusals). 87 frontend tests in all.
+
+Not verified:
+
+- Drag and drop and live mode inside the native WebView2 and WebKitGTK windows (checked in Chromium only).
+- Clusters whose network plugin doesn't enforce NetworkPolicies: lockdown policies are written but have no effect there, and Kupi can't tell.
+
+Known limits:
+
+- Lockdown covers incoming traffic only, and only for workloads on the canvas.
+- NetworkPolicies in a namespace aren't read back as "may call" links when it's opened.
+- Opened objects: existing connections can't be removed on the canvas, names can't change, Jobs can't be changed (Kubernetes forbids it), and per-copy storage can't be added to a running StatefulSet. Some fields are locked when they can't be shown exactly.
+- The fit meter counts requests of new workloads only; changes to running ones aren't included.
+
 ## Environment
 
 - Go 1.27, Wails v3.1.0, client-go v0.37 (supports Kubernetes 1.34 to 1.37), k3d 5.9, Node 22.
@@ -322,3 +346,4 @@ Known limits:
 - 2026-11-07: Linux build, packages and terminal verified in Ubuntu 24.04 (WSL2); milestones 11 to 15 implemented with unit tests; milestone 16 skipped.
 - 2026-11-07: milestones 11 to 15 checked live (release workflow on GitHub, Artifact Hub, OCI, Prometheus, Trivy, cosign, a private registry); 12 issues found and fixed. Only the GitHub pull request remains, for the maintainer.
 - 2026-11-20: milestone 17 (Build canvas) implemented with unit tests, checked in server mode and applied end to end on k3d. Round 2 (ports, paths, sidecars, StatefulSets, DaemonSets) the same day, also applied on k3d.
+- 2026-11-20: milestone 18 (Build round 3: live mode, traffic lockdown, opening a namespace, badges) implemented with Go and frontend tests and verified end to end on k3d, including real traffic against the generated NetworkPolicies.
